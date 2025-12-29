@@ -1,0 +1,134 @@
+name: Build and Test Docker Container
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'app.py'
+      - 'templates/**'
+      - 'data/**'
+      - '.github/workflows/docker-build.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'app.py'
+      - 'templates/**'
+      - 'data/**'
+      - '.github/workflows/docker-build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: aimealplanner:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+
+      - name: Test container starts successfully
+        run: |
+          # Start the container in detached mode
+          docker run -d --name test-container \
+            -e AI_BASE_URL=http://localhost:1234/v1 \
+            -e AI_API_KEY=test-key \
+            -e AI_MODEL=test-model \
+            -e FLASK_DEBUG=false \
+            -p 5000:5000 \
+            aimealplanner:test
+
+          # Wait for the application to start
+          echo "Waiting for application to start..."
+          sleep 10
+
+          # Check if container is still running
+          if ! docker ps | grep -q test-container; then
+            echo "Container failed to start"
+            docker logs test-container
+            exit 1
+          fi
+
+          # Test the health endpoint
+          echo "Testing health endpoint..."
+          max_retries=5
+          retry=0
+          while [ $retry -lt $max_retries ]; do
+            response=$(docker exec test-container curl -s -o /dev/null \
+              -w "%{http_code}" http://localhost:5000/health || echo "000")
+            if [ "$response" = "200" ]; then
+              echo "Health check passed!"
+              break
+            fi
+            retry=$((retry + 1))
+            echo "Health check attempt $retry failed, retrying..."
+            sleep 5
+          done
+
+          if [ "$response" != "200" ]; then
+            echo "Health check failed with status: $response"
+            docker logs test-container
+            exit 1
+          fi
+
+          # Test the main page
+          echo "Testing main page..."
+          response=$(docker exec test-container curl -s -o /dev/null \
+            -w "%{http_code}" http://localhost:5000/)
+          if [ "$response" != "200" ]; then
+            echo "Main page test failed with status: $response"
+            docker logs test-container
+            exit 1
+          fi
+
+          echo "Main page test passed!"
+
+      - name: Stop and remove test container
+        if: always()
+        run: |
+          docker stop test-container || true
+          docker rm test-container || true
+
+      - name: Verify environment variable support
+        run: |
+          # Test with custom environment variables
+          docker run -d --name env-test \
+            -e AI_BASE_URL=http://custom:8080/api \
+            -e AI_API_KEY=custom-key \
+            -e AI_MODEL=custom-model \
+            -p 5001:5000 \
+            aimealplanner:test
+
+          sleep 5
+
+          # Verify container started
+          if ! docker ps | grep -q env-test; then
+            echo "Container with custom env vars failed to start"
+            docker logs env-test
+            exit 1
+          fi
+
+          echo "Environment variable test passed!"
+
+          docker stop env-test
+          docker rm env-test
+
+      - name: Check image size
+        run: |
+          size=$(docker images aimealplanner:test --format "{{.Size}}")
+          echo "Docker image size: $size"

@@ -14,6 +14,17 @@ An AI-powered meal planning application that generates weekly meal plans from yo
 
 ## Quick Start with Docker
 
+### Using Pre-built Container (Recommended)
+```bash
+docker run -p 5000:5000 \
+  -e AI_BASE_URL=http://host.docker.internal:1234/v1 \
+  -e AI_API_KEY=lm-studio \
+  -e AI_MODEL=local-model \
+  -v $(pwd)/data:/app/data \
+  ghcr.io/mikeliddle/aimealplanner:latest
+```
+
+### Building from Source
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/mikeliddle/AIMealPlanner.git
@@ -33,6 +44,8 @@ An AI-powered meal planning application that generates weekly meal plans from yo
 
 4. **Access the application**:
    Open your browser to [http://localhost:5000](http://localhost:5000)
+
+📚 **For detailed Docker usage, publishing, and deployment options, see [DOCKER.md](DOCKER.md)**
 
 ## AI Provider Configuration
 
