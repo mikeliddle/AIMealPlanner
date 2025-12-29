@@ -253,7 +253,7 @@ def add_recipe():
         recipes = load_recipes()
         
         # Generate ID
-        recipe_id = len(recipes) + 1
+        recipe_id = max([r.get('id', 0) for r in recipes], default=0) + 1
         data['id'] = recipe_id
         data['created_at'] = datetime.now().isoformat()
         
@@ -318,7 +318,7 @@ def generate_meal_plan():
         
         # Create meal plan
         meal_plan = {
-            'id': len(meal_plans) + 1,
+            'id': max([p.get('id', 0) for p in meal_plans], default=0) + 1,
             'created_at': datetime.now().isoformat(),
             'start_date': data.get('start_date', datetime.now().strftime('%Y-%m-%d')),
             'days': days,
@@ -373,4 +373,6 @@ def health():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Only enable debug mode via environment variable for development
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
