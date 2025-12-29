@@ -1,0 +1,163 @@
+[
+  {
+    "id": 1,
+    "name": "Spaghetti Carbonara",
+    "description": "Classic Italian pasta dish with eggs, cheese, and pancetta",
+    "ingredients": [
+      {"quantity": 1, "unit": "lb", "item": "spaghetti"},
+      {"quantity": 6, "unit": "oz", "item": "pancetta"},
+      {"quantity": 4, "unit": "", "item": "eggs"},
+      {"quantity": 1, "unit": "cup", "item": "parmesan cheese"},
+      {"quantity": 2, "unit": "cloves", "item": "garlic"},
+      {"quantity": 0.5, "unit": "tsp", "item": "black pepper"}
+    ],
+    "instructions": "1. Cook spaghetti according to package directions.\n2. Cook pancetta until crispy.\n3. Whisk eggs and cheese together.\n4. Toss hot pasta with pancetta, then mix in egg mixture.\n5. Season with pepper and serve.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 2,
+    "name": "Chicken Stir-Fry",
+    "description": "Quick and healthy Asian-inspired chicken with vegetables",
+    "ingredients": [
+      {"quantity": 1.5, "unit": "lbs", "item": "chicken breast"},
+      {"quantity": 2, "unit": "cups", "item": "broccoli"},
+      {"quantity": 1, "unit": "cup", "item": "bell peppers"},
+      {"quantity": 0.5, "unit": "cup", "item": "soy sauce"},
+      {"quantity": 2, "unit": "tbsp", "item": "vegetable oil"},
+      {"quantity": 3, "unit": "cloves", "item": "garlic"},
+      {"quantity": 1, "unit": "tbsp", "item": "ginger"}
+    ],
+    "instructions": "1. Cut chicken into bite-sized pieces.\n2. Heat oil in wok or large pan.\n3. Stir-fry chicken until cooked through.\n4. Add vegetables and cook until tender-crisp.\n5. Add soy sauce and seasonings.\n6. Serve over rice.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 3,
+    "name": "Beef Tacos",
+    "description": "Mexican-style tacos with seasoned ground beef",
+    "ingredients": [
+      {"quantity": 1, "unit": "lb", "item": "ground beef"},
+      {"quantity": 1, "unit": "packet", "item": "taco seasoning"},
+      {"quantity": 8, "unit": "", "item": "taco shells"},
+      {"quantity": 1, "unit": "cup", "item": "shredded cheese"},
+      {"quantity": 1, "unit": "cup", "item": "lettuce"},
+      {"quantity": 2, "unit": "", "item": "tomatoes"},
+      {"quantity": 0.5, "unit": "cup", "item": "sour cream"}
+    ],
+    "instructions": "1. Brown ground beef in a skillet.\n2. Add taco seasoning and water according to package.\n3. Simmer until thickened.\n4. Warm taco shells.\n5. Fill shells with beef and toppings.\n6. Serve immediately.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 4,
+    "name": "Baked Salmon",
+    "description": "Healthy oven-baked salmon with herbs",
+    "ingredients": [
+      {"quantity": 4, "unit": "", "item": "salmon fillets"},
+      {"quantity": 2, "unit": "tbsp", "item": "olive oil"},
+      {"quantity": 2, "unit": "tbsp", "item": "lemon juice"},
+      {"quantity": 1, "unit": "tsp", "item": "dill"},
+      {"quantity": 0.5, "unit": "tsp", "item": "salt"},
+      {"quantity": 0.5, "unit": "tsp", "item": "black pepper"},
+      {"quantity": 2, "unit": "cloves", "item": "garlic"}
+    ],
+    "instructions": "1. Preheat oven to 400°F.\n2. Place salmon on baking sheet.\n3. Mix oil, lemon juice, and seasonings.\n4. Brush over salmon.\n5. Bake for 12-15 minutes until cooked through.\n6. Serve with vegetables.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 5,
+    "name": "Vegetable Curry",
+    "description": "Flavorful Indian-style vegetable curry",
+    "ingredients": [
+      {"quantity": 2, "unit": "cups", "item": "potatoes"},
+      {"quantity": 1, "unit": "cup", "item": "cauliflower"},
+      {"quantity": 1, "unit": "cup", "item": "peas"},
+      {"quantity": 1, "unit": "can", "item": "coconut milk"},
+      {"quantity": 2, "unit": "tbsp", "item": "curry powder"},
+      {"quantity": 1, "unit": "", "item": "onion"},
+      {"quantity": 3, "unit": "cloves", "item": "garlic"},
+      {"quantity": 1, "unit": "tbsp", "item": "vegetable oil"}
+    ],
+    "instructions": "1. Sauté onion and garlic in oil.\n2. Add curry powder and cook until fragrant.\n3. Add vegetables and coconut milk.\n4. Simmer until vegetables are tender.\n5. Season to taste.\n6. Serve with rice or naan.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 6,
+    "name": "Grilled Chicken Caesar Salad",
+    "description": "Fresh salad with grilled chicken and Caesar dressing",
+    "ingredients": [
+      {"quantity": 2, "unit": "", "item": "chicken breasts"},
+      {"quantity": 1, "unit": "head", "item": "romaine lettuce"},
+      {"quantity": 0.5, "unit": "cup", "item": "parmesan cheese"},
+      {"quantity": 1, "unit": "cup", "item": "croutons"},
+      {"quantity": 0.5, "unit": "cup", "item": "caesar dressing"},
+      {"quantity": 1, "unit": "tbsp", "item": "olive oil"}
+    ],
+    "instructions": "1. Season and grill chicken breasts.\n2. Let chicken rest, then slice.\n3. Chop romaine lettuce.\n4. Toss lettuce with dressing.\n5. Top with chicken, cheese, and croutons.\n6. Serve immediately.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 7,
+    "name": "Mushroom Risotto",
+    "description": "Creamy Italian rice dish with mushrooms",
+    "ingredients": [
+      {"quantity": 1.5, "unit": "cups", "item": "arborio rice"},
+      {"quantity": 8, "unit": "oz", "item": "mushrooms"},
+      {"quantity": 4, "unit": "cups", "item": "chicken broth"},
+      {"quantity": 0.5, "unit": "cup", "item": "white wine"},
+      {"quantity": 0.5, "unit": "cup", "item": "parmesan cheese"},
+      {"quantity": 2, "unit": "tbsp", "item": "butter"},
+      {"quantity": 1, "unit": "", "item": "onion"},
+      {"quantity": 2, "unit": "cloves", "item": "garlic"}
+    ],
+    "instructions": "1. Sauté onion and garlic in butter.\n2. Add rice and toast for 2 minutes.\n3. Add wine and stir until absorbed.\n4. Add broth one ladle at a time, stirring constantly.\n5. Sauté mushrooms and add to risotto.\n6. Finish with cheese and serve.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 8,
+    "name": "BBQ Pulled Pork",
+    "description": "Slow-cooked pork shoulder with BBQ sauce",
+    "ingredients": [
+      {"quantity": 3, "unit": "lbs", "item": "pork shoulder"},
+      {"quantity": 1, "unit": "cup", "item": "bbq sauce"},
+      {"quantity": 1, "unit": "tbsp", "item": "brown sugar"},
+      {"quantity": 1, "unit": "tbsp", "item": "paprika"},
+      {"quantity": 1, "unit": "tsp", "item": "garlic powder"},
+      {"quantity": 1, "unit": "tsp", "item": "onion powder"},
+      {"quantity": 8, "unit": "", "item": "hamburger buns"}
+    ],
+    "instructions": "1. Mix dry seasonings and rub on pork.\n2. Place in slow cooker.\n3. Cook on low for 8 hours.\n4. Shred pork with forks.\n5. Mix with BBQ sauce.\n6. Serve on buns.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 9,
+    "name": "Shrimp Scampi",
+    "description": "Garlicky shrimp in white wine butter sauce",
+    "ingredients": [
+      {"quantity": 1, "unit": "lb", "item": "shrimp"},
+      {"quantity": 8, "unit": "oz", "item": "linguine"},
+      {"quantity": 4, "unit": "tbsp", "item": "butter"},
+      {"quantity": 0.25, "unit": "cup", "item": "white wine"},
+      {"quantity": 4, "unit": "cloves", "item": "garlic"},
+      {"quantity": 2, "unit": "tbsp", "item": "lemon juice"},
+      {"quantity": 2, "unit": "tbsp", "item": "parsley"}
+    ],
+    "instructions": "1. Cook pasta according to package.\n2. Sauté garlic in butter.\n3. Add shrimp and cook until pink.\n4. Add wine and lemon juice.\n5. Toss with pasta.\n6. Garnish with parsley and serve.",
+    "created_at": "2025-01-01T00:00:00"
+  },
+  {
+    "id": 10,
+    "name": "Greek Salad Bowl",
+    "description": "Fresh Mediterranean bowl with feta and olives",
+    "ingredients": [
+      {"quantity": 2, "unit": "cups", "item": "quinoa"},
+      {"quantity": 1, "unit": "cup", "item": "cherry tomatoes"},
+      {"quantity": 1, "unit": "cup", "item": "cucumber"},
+      {"quantity": 0.5, "unit": "cup", "item": "feta cheese"},
+      {"quantity": 0.5, "unit": "cup", "item": "kalamata olives"},
+      {"quantity": 0.25, "unit": "cup", "item": "olive oil"},
+      {"quantity": 2, "unit": "tbsp", "item": "lemon juice"},
+      {"quantity": 1, "unit": "tsp", "item": "oregano"}
+    ],
+    "instructions": "1. Cook quinoa according to package.\n2. Chop vegetables.\n3. Mix oil, lemon juice, and oregano for dressing.\n4. Combine all ingredients in bowl.\n5. Drizzle with dressing.\n6. Serve chilled or at room temperature.",
+    "created_at": "2025-01-01T00:00:00"
+  }
+]

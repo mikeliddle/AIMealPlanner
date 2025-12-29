@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Add Recipe - AI Meal Planner{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Add New Recipe</h2>
+    
+    <form id="recipeForm">
+        <div class="form-group">
+            <label for="name">Recipe Name *</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>Ingredients</label>
+            <div id="ingredientsList">
+                <div class="ingredient-entry" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="number" step="0.01" placeholder="Quantity" style="width: 100px;">
+                    <input type="text" placeholder="Unit (e.g., cups, oz)" style="width: 120px;">
+                    <input type="text" placeholder="Item (e.g., flour, chicken)" style="flex: 1;">
+                </div>
+            </div>
+            <button type="button" onclick="addIngredient()" class="btn btn-secondary">Add Ingredient</button>
+        </div>
+        
+        <div class="form-group">
+            <label for="instructions">Instructions</label>
+            <textarea id="instructions" name="instructions"></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-success">Save Recipe</button>
+        <a href="{{ url_for('recipes') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function addIngredient() {
+    const container = document.getElementById('ingredientsList');
+    const newEntry = document.createElement('div');
+    newEntry.className = 'ingredient-entry';
+    newEntry.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+    newEntry.innerHTML = `
+        <input type="number" step="0.01" placeholder="Quantity" style="width: 100px;">
+        <input type="text" placeholder="Unit (e.g., cups, oz)" style="width: 120px;">
+        <input type="text" placeholder="Item (e.g., flour, chicken)" style="flex: 1;">
+        <button type="button" onclick="this.parentElement.remove()" class="btn btn-secondary" style="width: auto; padding: 5px 10px;">Remove</button>
+    `;
+    container.appendChild(newEntry);
+}
+
+document.getElementById('recipeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Collect ingredients
+    const ingredientEntries = document.querySelectorAll('.ingredient-entry');
+    const ingredients = [];
+    
+    ingredientEntries.forEach(entry => {
+        const inputs = entry.querySelectorAll('input');
+        const quantity = parseFloat(inputs[0].value) || 0;
+        const unit = inputs[1].value.trim();
+        const item = inputs[2].value.trim();
+        
+        if (item) {
+            ingredients.push({ quantity, unit, item });
+        }
+    });
+    
+    const recipe = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        ingredients: ingredients,
+        instructions: document.getElementById('instructions').value
+    };
+    
+    try {
+        const response = await fetch('{{ url_for("add_recipe") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(recipe)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            window.location.href = '{{ url_for("recipes") }}';
+        } else {
+            alert('Error saving recipe');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+</script>
+{% endblock %}

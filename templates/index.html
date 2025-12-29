@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Home - AI Meal Planner{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Welcome to AI Meal Planner! 🎉</h2>
+    <p>Plan your meals intelligently with AI assistance. Get weekly meal plans with proper spacing and automated grocery lists.</p>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h2>📚 Recipes</h2>
+        <p>You have <strong>{{ recipe_count }}</strong> recipe(s) in your collection.</p>
+        <br>
+        <a href="{{ url_for('recipes') }}" class="btn">View Recipes</a>
+        <a href="{{ url_for('add_recipe') }}" class="btn btn-success">Add Recipe</a>
+    </div>
+    
+    <div class="card">
+        <h2>📅 Meal Plans</h2>
+        <p>You have created <strong>{{ meal_plan_count }}</strong> meal plan(s).</p>
+        <br>
+        <a href="{{ url_for('meal_plans') }}" class="btn">View Plans</a>
+        <a href="{{ url_for('generate_meal_plan') }}" class="btn btn-success">Generate New Plan</a>
+    </div>
+    
+    <div class="card">
+        <h2>🤖 AI Integration</h2>
+        <p>Connect with LMStudio or OpenWebUI for intelligent meal planning.</p>
+        <br>
+        <div class="alert alert-info">
+            Configure your AI provider in the <code>.env</code> file.
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Features</h2>
+    <ul style="list-style-position: inside;">
+        <li>✅ Generate weekly meal plans from your recipe collection</li>
+        <li>✅ Smart recipe spacing - no repetition within a week</li>
+        <li>✅ AI-powered meal ordering for balanced nutrition</li>
+        <li>✅ Automatic grocery list generation with quantity aggregation</li>
+        <li>✅ Local AI provider support (LMStudio, OpenWebUI)</li>
+        <li>✅ Docker containerized for easy deployment</li>
+    </ul>
+</div>
+{% endblock %}
