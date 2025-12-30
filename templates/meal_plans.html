@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Meal Plans - AI Meal Planner{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Meal Plans</h2>
+    <a href="{{ url_for('generate_meal_plan') }}" class="btn btn-success">Generate New Plan</a>
+</div>
+
+{% if meal_plans %}
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Created</th>
+                <th>Start Date</th>
+                <th>Days</th>
+                <th>Recipes</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plan in meal_plans %}
+            <tr>
+                <td>{{ plan.created_at.split('T')[0] }}</td>
+                <td>{{ plan.start_date }}</td>
+                <td>{{ plan.days }}</td>
+                <td>{{ plan.recipes|length }}</td>
+                <td>
+                    <a href="{{ url_for('view_meal_plan', plan_id=plan.id) }}" class="btn">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <p>No meal plans yet. <a href="{{ url_for('generate_meal_plan') }}">Generate your first meal plan</a>!</p>
+</div>
+{% endif %}
+{% endblock %}

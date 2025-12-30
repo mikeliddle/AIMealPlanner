@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - AI_BASE_URL=${AI_BASE_URL:-http://host.docker.internal:1234/v1}
+      - AI_API_KEY=${AI_API_KEY:-lm-studio}
+      - AI_MODEL=${AI_MODEL:-local-model}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

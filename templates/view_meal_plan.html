@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Meal Plan - AI Meal Planner{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Meal Plan for Week of {{ plan.start_date }}</h2>
+    <p>Created: {{ plan.created_at.split('T')[0] }}</p>
+</div>
+
+<div class="card">
+    <h2>📅 Weekly Schedule</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Day</th>
+                <th>Date</th>
+                <th>Meal</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in recipes_with_days %}
+            <tr>
+                <td><strong>{{ item.day }}</strong></td>
+                <td>{{ item.date }}</td>
+                <td>{{ item.recipe.name }}</td>
+                <td>
+                    <a href="{{ url_for('view_recipe', recipe_id=item.recipe.id) }}" class="btn btn-secondary">View Recipe</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>🛒 Grocery List</h2>
+    <p>This list aggregates all ingredients needed for the week's meals.</p>
+    
+    {% if plan.grocery_list %}
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Total Quantity</th>
+                <th>Unit</th>
+                <th>Used In</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in plan.grocery_list %}
+            <tr>
+                <td><strong>{{ item.item|title }}</strong></td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.unit }}</td>
+                <td style="font-size: 0.9em; color: #666;">
+                    {{ item.recipes|join(', ') }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No grocery list available.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <a href="{{ url_for('meal_plans') }}" class="btn btn-secondary">Back to Meal Plans</a>
+    <a href="{{ url_for('generate_meal_plan') }}" class="btn btn-success">Generate Another Plan</a>
+</div>
+{% endblock %}
