@@ -40,4 +40,4 @@ docker-compose.yml
 .env.local
 
 # Test data (keep sample data in data/ folder, but exclude generated plans if needed)
-# data/meal_plans.json
+data

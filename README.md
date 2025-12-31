@@ -12,196 +12,100 @@ An AI-powered meal planning application that generates weekly meal plans from yo
 ✅ **Docker Support**: Easy deployment with Docker and docker-compose  
 ✅ **Web Interface**: Clean, responsive web UI for managing recipes and meal plans
 
-## Quick Start with Docker
+## Quick Start
 
-### Using Pre-built Container (Recommended)
+📖 **Documentation:**
+- [Quick Start Guide](docs/QUICKSTART.md) - Complete setup and usage instructions
+- [Docker Guide](docs/DOCKER.md) - Docker deployment and container management
+- [Testing Guide](docs/TESTING.md) - Running and writing tests
+
+### Docker (Recommended)
 ```bash
-docker run -p 5000:5000 \
-  -e AI_BASE_URL=http://host.docker.internal:1234/v1 \
-  -e AI_API_KEY=lm-studio \
-  -e AI_MODEL=local-model \
-  -v $(pwd)/data:/app/data \
-  ghcr.io/mikeliddle/aimealplanner:latest
+docker-compose up -d
+```
+Access at [http://localhost:5000](http://localhost:5000)
+
+### Local Development
+```bash
+pip install -r requirements.txt
+python app.py
 ```
 
-### Building from Source
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/mikeliddle/AIMealPlanner.git
-   cd AIMealPlanner
-   ```
+See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed instructions and usage guide.
 
-2. **Configure AI provider** (optional):
-   ```bash
-   cp .env.example .env
-   # Edit .env with your AI provider settings
-   ```
+## Configuration
 
-3. **Run with Docker Compose**:
-   ```bash
-   docker-compose up -d
-   ```
+### AI Provider Setup (Optional)
 
-4. **Access the application**:
-   Open your browser to [http://localhost:5000](http://localhost:5000)
+Configure via environment variables in `.env`:
 
-📚 **For detailed Docker usage, publishing, and deployment options, see [DOCKER.md](DOCKER.md)**
-
-## AI Provider Configuration
-
-The application supports any OpenAI-compatible API endpoint. Configure via environment variables in `.env`:
-
-### LMStudio
 ```env
-AI_BASE_URL=http://host.docker.internal:1234/v1
-AI_API_KEY=lm-studio
-AI_MODEL=local-model
+AI_BASE_URL=http://localhost:1234/v1  # Your AI provider URL
+AI_API_KEY=lm-studio                   # API key (if required)
+AI_MODEL=local-model                   # Model name
 ```
 
-### OpenWebUI
-```env
-AI_BASE_URL=http://host.docker.internal:8080/api/v1
-AI_API_KEY=your-api-key
-AI_MODEL=your-model-name
-```
+**Supported Providers:** LMStudio, OpenWebUI, or any OpenAI-compatible API
 
-### Other Providers
-Any OpenAI-compatible endpoint works. Set `AI_BASE_URL` to your provider's base URL.
-
-**Note**: AI integration is optional. The app works without it using random meal ordering.
-
-## Manual Setup (Without Docker)
-
-1. **Install Python 3.11+**
-
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure environment** (optional):
-   ```bash
-   cp .env.example .env
-   # Edit .env file
-   ```
-
-4. **Run the application**:
-   ```bash
-   python app.py
-   ```
-
-5. **Access at**: [http://localhost:5000](http://localhost:5000)
-
-## Usage
-
-### Adding Recipes
-
-1. Navigate to **Recipes** → **Add New Recipe**
-2. Enter recipe details:
-   - Name and description
-   - Ingredients with quantities and units
-   - Cooking instructions
-3. Click **Save Recipe**
-
-The application comes with 10 sample recipes pre-loaded.
-
-### Generating Meal Plans
-
-1. Go to **Generate Plan**
-2. Select:
-   - Start date for your meal plan
-   - Number of days (7 or 14)
-   - Enable/disable AI ordering
-3. Click **Generate Meal Plan**
-
-The app will:
-- Select recipes with smart spacing to avoid repetition
-- Optionally use AI to optimize meal order
-- Generate an aggregated grocery list
-
-### Viewing Meal Plans
-
-- **Weekly Schedule**: See which recipe is assigned to each day
-- **Grocery List**: View aggregated ingredients with total quantities
-- **Recipe Details**: Click any recipe to see full details
+**Note**: AI is optional. The app works without it using intelligent recipe spacing.
 
 ## How It Works
 
 ### Recipe Spacing Algorithm
-
-The meal planner uses a weighted selection system:
-1. Analyzes recent meal plans (last 4 weeks)
-2. Assigns lower weights to recently used recipes
-3. More recent usage = lower probability of selection
-4. Ensures no recipe repeats within the same week
-5. Maintains natural variety across weeks
+The meal planner uses a weighted selection system that:
+- Analyzes recent meal plans (last 4 weeks)
+- Assigns lower weights to recently used recipes
+- Ensures no recipe repeats within the same week
+- Maintains natural variety across weeks
 
 ### Grocery List Aggregation
-
-When generating a meal plan:
-1. Extracts all ingredients from selected recipes
-2. Groups identical ingredients together
-3. Sums quantities for the same item (assumes same units)
-4. Shows which recipes use each ingredient
-5. Displays total amount needed for the week
+- Extracts all ingredients from selected recipes
+- Groups identical ingredients together
+- Sums quantities for the same item
+- Shows which recipes use each ingredient
 
 ### AI Integration
+If enabled, the AI provider analyzes nutritional balance and suggests optimal meal ordering for the week.
 
-If enabled, the AI provider:
-1. Receives the selected recipes
-2. Analyzes nutritional balance and variety
-3. Suggests optimal ordering for the week
-4. Returns recipes in recommended sequence
-
-## Data Storage
-
-All data is stored in JSON files in the `data/` directory:
-- `recipes.json`: Your recipe collection
-- `meal_plans.json`: Generated meal plans with grocery lists
-
-## Architecture
+## Project Structure
 
 ```
-AIMealPlanner/
-├── app.py                 # Flask application and business logic
+aimealplanner/
+├── app.py                 # Main Flask application
 ├── requirements.txt       # Python dependencies
-├── Dockerfile            # Docker container configuration
-├── docker-compose.yml    # Docker Compose setup
-├── .env.example          # Environment variables template
+├── pytest.ini            # Test configuration
+├── docker-compose.yml    # Docker setup
+├── docs/                 # Documentation
+│   ├── QUICKSTART.md
+│   ├── DOCKER.md
+│   └── TESTING.md
 ├── templates/            # HTML templates
-│   ├── base.html
-│   ├── index.html
-│   ├── recipes.html
-│   ├── add_recipe.html
-│   ├── view_recipe.html
-│   ├── meal_plans.html
-│   ├── generate_meal_plan.html
-│   └── view_meal_plan.html
-└── data/                 # Data storage
+├── tests/                # Test suite
+│   ├── test_utils.py
+│   ├── test_routes.py
+│   └── test_ai.py
+└── data/                 # JSON storage
     ├── recipes.json
     └── meal_plans.json
 ```
 
-## Requirements
+## Testing
 
-- Python 3.11+
-- Flask 3.0+
-- OpenAI SDK (for AI provider integration)
-- Docker (for containerized deployment)
+98% code coverage with 52 comprehensive tests. See [docs/TESTING.md](docs/TESTING.md) for details.
 
-## Development
-
-To run in development mode:
 ```bash
-python app.py
+pytest                    # Run all tests
+./run_tests.sh fast      # Quick test run
+pytest --cov=app         # With coverage report
 ```
-
-The application will run with debug mode enabled on `http://localhost:5000`.
-
-## License
-
-See LICENSE file for details.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions welcome! Please ensure:
+- All tests pass (`pytest`)
+- Code coverage remains >95%
+- New features include tests
+
+## License
+
+See [LICENSE](LICENSE) file for details.
