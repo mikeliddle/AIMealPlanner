@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY app.py .
 COPY templates/ templates/
-COPY data/ data/
+COPY utils/ utils/
 
 # Create a non-root user to run the application
 RUN useradd -m -u 1000 appuser && \

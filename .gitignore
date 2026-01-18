@@ -28,8 +28,11 @@ instance/
 .DS_Store
 Thumbs.db
 
-# Data (optional - uncomment if you don't want to commit data files)
-data
+# Data - CRITICAL: Exclude all sensitive credential and token files
+data/credentials.json
+data/token.json
+data/meal_plans.json
+data/recipes.json
 
 # Testing
 .pytest_cache/

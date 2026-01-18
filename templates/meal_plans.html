@@ -1,43 +1,254 @@
-{% extends "base.html" %}
-
-{% block title %}Meal Plans - AI Meal Planner{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Meal Plans - AI Meal Planner{%
+endblock %} {% block content %}
 <div class="card">
-    <h2>Meal Plans</h2>
-    <a href="{{ url_for('generate_meal_plan') }}" class="btn btn-success">Generate New Plan</a>
+  <h2>Meal Plans</h2>
+  <a href="{{ url_for('generate_meal_plan') }}" class="btn btn-success"
+    >Generate New Plan</a
+  >
 </div>
 
 {% if meal_plans %}
+<!-- Staged Plans Section -->
+{% set staged_plans = meal_plans | selectattr('status', 'equalto', 'staged') |
+list %} {% if staged_plans %}
 <div class="card">
-    <table>
-        <thead>
-            <tr>
-                <th>Created</th>
-                <th>Start Date</th>
-                <th>Days</th>
-                <th>Recipes</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for plan in meal_plans %}
-            <tr>
-                <td>{{ plan.created_at.split('T')[0] }}</td>
-                <td>{{ plan.start_date }}</td>
-                <td>{{ plan.days }}</td>
-                <td>{{ plan.recipes|length }}</td>
-                <td>
-                    <a href="{{ url_for('view_meal_plan', plan_id=plan.id) }}" class="btn">View</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-{% else %}
-<div class="alert alert-info">
-    <p>No meal plans yet. <a href="{{ url_for('generate_meal_plan') }}">Generate your first meal plan</a>!</p>
+  <h2>📝 Staged Plans (Pending Review)</h2>
+  <p style="font-size: 0.9em; color: #666">
+    These plans are waiting for you to review and accept them.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Created</th>
+        <th>Start Date</th>
+        <th>Days</th>
+        <th>Recipes</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plan in staged_plans %}
+      <tr>
+        <td>{{ plan.created_at.split('T')[0] }}</td>
+        <td>{{ plan.start_date }}</td>
+        <td>{{ plan.days }}</td>
+        <td>{{ plan.recipes|length }}</td>
+        <td>
+          <a
+            href="{{ url_for('stage_meal_plan', plan_id=plan.id) }}"
+            class="btn btn-warning"
+            >Review & Accept</a
+          >
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endif %}
+
+<!-- Accepted Plans Section -->
+{% set accepted_plans = meal_plans | selectattr('status', 'equalto', 'accepted')
+| list %} {% if accepted_plans %}
+<div class="card">
+  <h2>✅ Accepted Plans</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Created</th>
+        <th>Start Date</th>
+        <th>Days</th>
+        <th>Recipes</th>
+        <th>Calendar</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plan in accepted_plans %}
+      <tr>
+        <td>{{ plan.created_at.split('T')[0] }}</td>
+        <td>{{ plan.start_date }}</td>
+        <td>{{ plan.days }}</td>
+        <td>{{ plan.recipes|length }}</td>
+        <td>
+          {% if plan.calendar_added %}
+          <span style="color: green">📅 Added</span>
+          {% else %}
+          <span style="color: #999">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{{ url_for('view_meal_plan', plan_id=plan.id) }}" class="btn"
+            >View</a
+          >
+          <button
+            class="btn btn-secondary archive-btn"
+            data-plan-id="{{ plan.id }}"
+          >
+            Archive
+          </button>
+          <button
+            class="btn btn-danger delete-btn"
+            data-plan-id="{{ plan.id }}"
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Archived Plans Section -->
+{% set archived_plans = meal_plans | selectattr('status', 'equalto', 'archived')
+| list %} {% if archived_plans %}
+<div class="card">
+  <h2>📦 Archived Plans</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Created</th>
+        <th>Start Date</th>
+        <th>Days</th>
+        <th>Recipes</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plan in archived_plans %}
+      <tr style="opacity: 0.7">
+        <td>{{ plan.created_at.split('T')[0] }}</td>
+        <td>{{ plan.start_date }}</td>
+        <td>{{ plan.days }}</td>
+        <td>{{ plan.recipes|length }}</td>
+        <td>
+          <a
+            href="{{ url_for('view_meal_plan', plan_id=plan.id) }}"
+            class="btn btn-secondary"
+            >View</a
+          >
+          <button
+            class="btn btn-danger delete-btn"
+            data-plan-id="{{ plan.id }}"
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Legacy Plans (no status) -->
+{% set legacy_plans = meal_plans | rejectattr('status', 'defined') | list %} {%
+if legacy_plans %}
+<div class="card">
+  <h2>📋 Legacy Plans</h2>
+  <p style="font-size: 0.9em; color: #666">
+    These plans were created before the staging system was implemented.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Created</th>
+        <th>Start Date</th>
+        <th>Days</th>
+        <th>Recipes</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plan in legacy_plans %}
+      <tr>
+        <td>{{ plan.created_at.split('T')[0] }}</td>
+        <td>{{ plan.start_date }}</td>
+        <td>{{ plan.days }}</td>
+        <td>{{ plan.recipes|length }}</td>
+        <td>
+          <a href="{{ url_for('view_meal_plan', plan_id=plan.id) }}" class="btn"
+            >View</a
+          >
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %} {% else %}
+<div class="alert alert-info">
+  <p>
+    No meal plans yet.
+    <a href="{{ url_for('generate_meal_plan') }}"
+      >Generate your first meal plan</a
+    >!
+  </p>
+</div>
+{% endif %} {% endblock %} {% block extra_scripts %}
+<script>
+  // Archive plan functionality
+  document.querySelectorAll(".archive-btn").forEach((btn) => {
+    btn.addEventListener("click", async function () {
+      const planId = this.dataset.planId;
+
+      if (!confirm("Archive this meal plan? You can still view it later.")) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/meal-plans/${planId}/archive`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          window.location.reload();
+        } else {
+          alert("Error archiving plan: " + result.error);
+        }
+      } catch (error) {
+        alert("Error: " + error);
+      }
+    });
+  });
+
+  // Delete plan functionality
+  document.querySelectorAll(".delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async function () {
+      const planId = this.dataset.planId;
+
+      if (
+        !confirm("⚠️ Delete this meal plan permanently? This cannot be undone.")
+      ) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/meal-plans/${planId}/delete`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          window.location.reload();
+        } else {
+          alert("Error deleting plan: " + result.error);
+        }
+      } catch (error) {
+        alert("Error: " + error);
+      }
+    });
+  });
+</script>
 {% endblock %}
