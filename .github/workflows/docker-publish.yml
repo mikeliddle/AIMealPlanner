@@ -23,7 +23,7 @@ env:
 
 
 jobs:
-  build:
+  Build-And-Push-Image:
 
     runs-on: ubuntu-latest
     permissions:
