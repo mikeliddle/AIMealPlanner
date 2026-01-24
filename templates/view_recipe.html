@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}{{ recipe.name }} - AI Meal Planner{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>{{ recipe.name }}</h2>
+    <p><em>{{ recipe.description }}</em></p>
+    
+    <h3 style="margin-top: 20px;">Ingredients</h3>
+    <ul class="ingredient-list">
+        {% for ingredient in recipe.ingredients %}
+        <li>
+            {% if ingredient.quantity %}{{ ingredient.quantity }}{% endif %}
+            {% if ingredient.unit %}{{ ingredient.unit }}{% endif %}
+            {{ ingredient.item }}
+        </li>
+        {% endfor %}
+    </ul>
+    
+    {% if recipe.instructions %}
+    <h3 style="margin-top: 20px;">Instructions</h3>
+    <p style="white-space: pre-wrap;">{{ recipe.instructions }}</p>
+    {% endif %}
+    
+    <div style="margin-top: 20px;">
+        <a href="{{ url_for('recipes') }}" class="btn btn-secondary">Back to Recipes</a>
+    </div>
+</div>
+{% endblock %}

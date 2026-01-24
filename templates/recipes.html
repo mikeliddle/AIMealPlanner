@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Recipes - AI Meal Planner{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Recipe Collection</h2>
+    <a href="{{ url_for('add_recipe') }}" class="btn btn-success">Add New Recipe</a>
+</div>
+
+{% if recipes %}
+<div class="card">
+    <div class="form-group">
+      <input 
+        type="text" 
+        id="recipeSearch" 
+        placeholder="🔍 Search recipes by name, category, or ingredient..."
+        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;"
+      />
+    </div>
+    <p id="searchResults" style="color: #666; margin-top: 10px;"></p>
+</div>
+
+<div class="grid">
+    {% for recipe in recipes %}
+    <div class="recipe-card" 
+         data-recipe-name="{{ recipe.name }}"
+         data-recipe-category="{{ recipe.category or '' }}"
+         data-recipe-description="{{ recipe.description }}"
+         data-recipe-ingredients="{{ recipe.ingredients | map(attribute='item') | join(', ') }}">
+        <h3>{{ recipe.name }}</h3>
+        {% if recipe.category %}
+        <p style="color: #007bff; margin: 5px 0;"><strong>Category:</strong> {{ recipe.category }}</p>
+        {% endif %}
+        <p><em>{{ recipe.description }}</em></p>
+        <p><strong>Ingredients:</strong> {{ recipe.ingredients|length }}</p>
+        <a href="{{ url_for('view_recipe', recipe_id=recipe.id) }}" class="btn btn-secondary">View Details</a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    <p>No recipes yet. <a href="{{ url_for('add_recipe') }}">Add your first recipe</a> to get started!</p>
+</div>
+{% endif %}
+
+<script>
+// Recipe search functionality
+const recipeSearch = document.getElementById('recipeSearch');
+const searchResults = document.getElementById('searchResults');
+const recipeCards = document.querySelectorAll('.recipe-card');
+
+if (recipeSearch && recipeCards.length > 0) {
+    recipeSearch.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        let visibleCount = 0;
+        
+        recipeCards.forEach(card => {
+            const name = card.dataset.recipeName.toLowerCase();
+            const category = card.dataset.recipeCategory.toLowerCase();
+            const description = card.dataset.recipeDescription.toLowerCase();
+            const ingredients = card.dataset.recipeIngredients.toLowerCase();
+            
+            const matches = name.includes(searchTerm) || 
+                           category.includes(searchTerm) || 
+                           description.includes(searchTerm) ||
+                           ingredients.includes(searchTerm);
+            
+            card.style.display = matches ? 'block' : 'none';
+            if (matches) visibleCount++;
+        });
+        
+        if (searchTerm) {
+            searchResults.textContent = `Showing ${visibleCount} of ${recipeCards.length} recipes`;
+        } else {
+            searchResults.textContent = '';
+        }
+    });
+}
+</script>
+{% endblock %}

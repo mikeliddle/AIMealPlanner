@@ -1,0 +1,169 @@
+{% extends "base.html" %} {% block title %}Meal Plan - AI Meal Planner{%
+endblock %} {% block content %}
+<div class="card">
+  <h2>Meal Plan for Week of {{ plan.start_date }}</h2>
+  <p>Created: {{ plan.created_at.split('T')[0] }}</p>
+  {% if plan.status %}
+  <p>
+    Status: {% if plan.status == 'staged' %}
+    <span style="color: orange">📝 Staged</span>
+    {% elif plan.status == 'accepted' %}
+    <span style="color: green">✅ Accepted</span>
+    {% elif plan.status == 'archived' %}
+    <span style="color: gray">📦 Archived</span>
+    {% endif %}
+  </p>
+  {% endif %} {% if plan.calendar_added %}
+  <p style="color: green">📅 Added to Google Calendar</p>
+  {% elif plan.status == 'accepted' %}
+  <button id="addToCalendarBtn" class="btn btn-primary">
+    📅 Add to Google Calendar
+  </button>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>📅 Weekly Schedule</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Day</th>
+        <th>Date</th>
+        <th>Meal</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in recipes_with_days %}
+      <tr>
+        <td><strong>{{ item.day }}</strong></td>
+        <td>{{ item.date }}</td>
+        <td>{{ item.recipe.name }}</td>
+        <td>
+          <a
+            href="{{ url_for('view_recipe', recipe_id=item.recipe.id) }}"
+            class="btn btn-secondary"
+            >View Recipe</a
+          >
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>🛒 Grocery List</h2>
+  <p>This list aggregates all ingredients needed for the week's meals.</p>
+
+  {% if plan.grocery_list %}
+  <table>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Total Quantity</th>
+        <th>Unit</th>
+        <th>Used In</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in plan.grocery_list %}
+      <tr>
+        <td><strong>{{ item.item|title }}</strong></td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ item.unit }}</td>
+        <td style="font-size: 0.9em; color: #666">
+          {{ item.recipes|join(', ') }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No grocery list available.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <a href="{{ url_for('meal_plans') }}" class="btn btn-secondary"
+    >Back to Meal Plans</a
+  >
+  <a href="{{ url_for('generate_meal_plan') }}" class="btn btn-success"
+    >Generate Another Plan</a
+  >
+  <button id="deletePlanBtn" class="btn btn-danger">Delete Plan</button>
+</div>
+
+<script>
+  // Delete Plan functionality
+  const deletePlanBtn = document.getElementById("deletePlanBtn");
+  if (deletePlanBtn) {
+    deletePlanBtn.addEventListener("click", async function () {
+      if (
+        !confirm("⚠️ Delete this meal plan permanently? This cannot be undone.")
+      ) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/meal-plans/{{ plan.id }}/delete`, {
+          method: "POST",
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          window.location.href = result.redirect;
+        } else {
+          alert("❌ Error: " + result.error);
+        }
+      } catch (error) {
+        alert("❌ Error: " + error);
+      }
+    });
+  }
+
+  // Add to Calendar functionality
+  const addToCalendarBtn = document.getElementById("addToCalendarBtn");
+  if (addToCalendarBtn) {
+    addToCalendarBtn.addEventListener("click", async function () {
+      if (!confirm("Add this meal plan to your Google Calendar?")) {
+        return;
+      }
+
+      addToCalendarBtn.disabled = true;
+      addToCalendarBtn.textContent = "Adding...";
+
+      try {
+        const response = await fetch(
+          `/meal-plans/{{ plan.id }}/add-to-calendar`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        const result = await response.json();
+
+        if (result.success) {
+          alert("✅ " + result.message);
+          location.reload();
+        } else if (result.needs_authorization) {
+          alert(result.message);
+          window.location.href = result.authorization_url;
+        } else {
+          alert("❌ Error: " + result.error);
+          addToCalendarBtn.disabled = false;
+          addToCalendarBtn.textContent = "📅 Add to Google Calendar";
+        }
+      } catch (error) {
+        alert("❌ Error: " + error);
+        addToCalendarBtn.disabled = false;
+        addToCalendarBtn.textContent = "📅 Add to Google Calendar";
+      }
+    });
+  }
+</script>
+{% endblock %}

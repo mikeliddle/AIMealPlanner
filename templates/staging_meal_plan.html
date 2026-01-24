@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Stage Meal Plan - AI Meal Planner{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>🎯 Review & Customize Your Meal Plan</h2>
+    <p>Week of {{ plan.start_date }}</p>
+    <p class="alert alert-info">
+        📝 Review your meal plan below. You can swap any recipe before accepting the plan.
+    </p>
+</div>
+
+<div class="card">
+    <h2>📅 Weekly Schedule</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Day</th>
+                <th>Date</th>
+                <th>Meal</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="mealSchedule">
+            {% for item in recipes_with_days %}
+            <tr data-day-index="{{ item.day_index }}">
+                <td><strong>{{ item.day }}</strong></td>
+                <td>{{ item.date }}</td>
+                <td class="recipe-name">{{ item.recipe.name }}</td>
+                <td>
+                    <a href="{{ url_for('view_recipe', recipe_id=item.recipe.id) }}" class="btn btn-secondary" target="_blank">View Recipe</a>
+                    <button class="btn btn-warning swap-btn" data-day-index="{{ item.day_index }}" data-current-recipe="{{ item.recipe.id }}">
+                        Swap Recipe
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>🛒 Grocery List</h2>
+    <p>This list will update automatically when you swap recipes.</p>
+    
+    <table id="groceryList">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Total Quantity</th>
+                <th>Unit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in plan.grocery_list %}
+            <tr>
+                <td><strong>{{ item.item|title }}</strong></td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.unit }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>✅ Accept Plan</h2>
+    
+    {% if calendar_configured %}
+    <div class="form-group">
+        <input type="checkbox" id="addToCalendar" checked>
+        <label for="addToCalendar">Add meals to Google Calendar</label>
+        <p style="font-size: 0.9em; color: #666; margin-left: 25px;">
+            Each meal will be added as an event at 6:00 PM with a 1-hour reminder.
+        </p>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <p>📅 <strong>Google Calendar not configured.</strong></p>
+        <p>To add meals to your calendar, set up your Google Calendar credentials. See the documentation for instructions.</p>
+    </div>
+    {% endif %}
+    
+    <button id="acceptBtn" class="btn btn-success">Accept Meal Plan</button>
+    <button id="deleteBtn" class="btn btn-danger">Delete Plan</button>
+    <a href="{{ url_for('meal_plans') }}" class="btn btn-secondary">Back to Plans</a>
+</div>
+
+<!-- Modal for recipe swap -->
+<div id="swapModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div id="swapModalContent" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="margin: 0;">Choose a Different Recipe</h3>
+            <button id="closeModalX" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; line-height: 1;" aria-label="Close">&times;</button>
+        </div>
+        <p>Select a recipe to use instead:</p>
+        
+        <div id="recipeList" style="margin: 20px 0;">
+            {% for recipe in all_recipes %}
+            <div class="recipe-option" style="padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" data-recipe-id="{{ recipe.id }}">
+                <strong>{{ recipe.name }}</strong>
+                <p style="font-size: 0.9em; color: #666; margin: 5px 0;">{{ recipe.description }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <button id="closeModal" class="btn btn-secondary">Cancel</button>
+    </div>
+</div>
+
+<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; text-align: center;">
+        <div class="alert alert-info">
+            <p>Processing... Please wait.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const planId = {{ plan.id }};
+let currentDayIndex = null;
+
+// Swap recipe functionality
+document.querySelectorAll('.swap-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        currentDayIndex = parseInt(this.dataset.dayIndex);
+        document.getElementById('swapModal').style.display = 'block';
+    });
+});
+
+// Close modal functions
+function closeSwapModal() {
+    document.getElementById('swapModal').style.display = 'none';
+    currentDayIndex = null;
+}
+
+// Close modal with Cancel button
+document.getElementById('closeModal').addEventListener('click', closeSwapModal);
+
+// Close modal with X button
+document.getElementById('closeModalX').addEventListener('click', closeSwapModal);
+
+// Close modal when clicking on background overlay
+document.getElementById('swapModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeSwapModal();
+    }
+});
+
+// Select recipe from modal
+document.querySelectorAll('.recipe-option').forEach(option => {
+    option.addEventListener('click', function() {
+        const newRecipeId = parseInt(this.dataset.recipeId);
+        swapRecipe(currentDayIndex, newRecipeId);
+    });
+});
+
+async function swapRecipe(dayIndex, newRecipeId) {
+    document.getElementById('loadingOverlay').style.display = 'block';
+    
+    try {
+        const response = await fetch(`/meal-plans/${planId}/swap`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                day_index: dayIndex,
+                new_recipe_id: newRecipeId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Reload the page to show updated meal plan and grocery list
+            window.location.reload();
+        } else {
+            alert('Error swapping recipe: ' + result.error);
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    } catch (error) {
+        alert('Error: ' + error);
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+    
+    document.getElementById('swapModal').style.display = 'none';
+}
+
+// Accept plan
+document.getElementById('acceptBtn').addEventListener('click', async function() {
+    const addToCalendar = document.getElementById('addToCalendar')?.checked || false;
+    
+    if (!confirm('Accept this meal plan? It will be moved to your accepted plans.')) {
+        return;
+    }
+    
+    document.getElementById('loadingOverlay').style.display = 'block';
+    
+    try {
+        const response = await fetch(`/meal-plans/${planId}/accept`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                add_to_calendar: addToCalendar
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            if (result.calendar_result) {
+                if (result.calendar_result.success) {
+                    alert('✅ ' + result.calendar_result.message);
+                } else {
+                    alert('⚠️ Plan accepted but calendar sync failed: ' + result.calendar_result.error);
+                }
+            }
+            window.location.href = result.redirect;
+        } else {
+            alert('Error accepting plan: ' + result.error);
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    } catch (error) {
+        alert('Error: ' + error);
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+});
+
+// Delete plan
+document.getElementById('deleteBtn').addEventListener('click', async function() {
+    if (!confirm('Delete this meal plan? This cannot be undone.')) {
+        return;
+    }
+    
+    document.getElementById('loadingOverlay').style.display = 'block';
+    
+    try {
+        const response = await fetch(`/meal-plans/${planId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            window.location.href = result.redirect;
+        } else {
+            alert('Error deleting plan: ' + result.error);
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    } catch (error) {
+        alert('Error: ' + error);
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}
