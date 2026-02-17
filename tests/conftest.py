@@ -1,8 +1,10 @@
 """Pytest configuration and shared fixtures."""
-import os
 import json
+import os
 import tempfile
+
 import pytest
+
 from app import app as flask_app
 
 
@@ -11,21 +13,21 @@ def app():
     """Create and configure a test instance of the Flask app."""
     # Create a temporary directory for test data
     test_data_dir = tempfile.mkdtemp()
-    
+
     # Configure app for testing
     flask_app.config.update({
         'TESTING': True,
         'SECRET_KEY': 'test-secret-key'
     })
-    
+
     # Override data directory paths
     import app as app_module
     app_module.DATA_DIR = test_data_dir
     app_module.RECIPES_FILE = os.path.join(test_data_dir, 'recipes.json')
     app_module.MEAL_PLANS_FILE = os.path.join(test_data_dir, 'meal_plans.json')
-    
+
     yield flask_app
-    
+
     # Cleanup
     import shutil
     shutil.rmtree(test_data_dir, ignore_errors=True)
@@ -49,6 +51,7 @@ def sample_recipe():
     return {
         'id': 1,
         'name': 'Spaghetti Carbonara',
+        'category': 'Pasta',
         'description': 'Classic Italian pasta dish',
         'prep_time': 10,
         'cook_time': 20,
@@ -76,6 +79,7 @@ def sample_recipes():
         {
             'id': 1,
             'name': 'Spaghetti Carbonara',
+            'category': 'Pasta',
             'description': 'Classic Italian pasta',
             'ingredients': [
                 {'item': 'spaghetti', 'quantity': 400, 'unit': 'g'},
@@ -86,6 +90,7 @@ def sample_recipes():
         {
             'id': 2,
             'name': 'Chicken Curry',
+            'category': 'Chicken',
             'description': 'Spicy Indian curry',
             'ingredients': [
                 {'item': 'chicken', 'quantity': 500, 'unit': 'g'},
@@ -96,6 +101,7 @@ def sample_recipes():
         {
             'id': 3,
             'name': 'Caesar Salad',
+            'category': 'Vegetable',
             'description': 'Fresh salad with dressing',
             'ingredients': [
                 {'item': 'lettuce', 'quantity': 1, 'unit': 'head'},
@@ -106,6 +112,7 @@ def sample_recipes():
         {
             'id': 4,
             'name': 'Beef Stir Fry',
+            'category': 'Beef',
             'description': 'Quick Asian stir fry',
             'ingredients': [
                 {'item': 'beef', 'quantity': 400, 'unit': 'g'},
@@ -116,6 +123,7 @@ def sample_recipes():
         {
             'id': 5,
             'name': 'Fish Tacos',
+            'category': 'Sandwich',
             'description': 'Mexican style tacos',
             'ingredients': [
                 {'item': 'fish', 'quantity': 400, 'unit': 'g'},
@@ -126,6 +134,7 @@ def sample_recipes():
         {
             'id': 6,
             'name': 'Vegetable Soup',
+            'category': 'Soup',
             'description': 'Healthy vegetable soup',
             'ingredients': [
                 {'item': 'vegetables', 'quantity': 500, 'unit': 'g'},
@@ -136,6 +145,7 @@ def sample_recipes():
         {
             'id': 7,
             'name': 'BBQ Ribs',
+            'category': 'Pork',
             'description': 'Smoky BBQ ribs',
             'ingredients': [
                 {'item': 'pork ribs', 'quantity': 1000, 'unit': 'g'},

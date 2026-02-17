@@ -5,7 +5,7 @@
 {% block content %}
 <div class="card">
     <h2>Generate Weekly Meal Plan</h2>
-    
+
     {% if recipe_count == 0 %}
     <div class="alert alert-warning">
         <p>You need to add some recipes before generating a meal plan.</p>
@@ -13,30 +13,37 @@
     </div>
     {% else %}
     <p>You have {{ recipe_count }} recipes available. Generate a meal plan with smart spacing and AI-powered ordering.</p>
-    
+
     <form id="generateForm">
         <div class="form-group">
             <label for="start_date">Start Date</label>
             <input type="date" id="start_date" name="start_date" required>
         </div>
-        
+
         <div class="form-group">
             <label for="days">Number of Days</label>
             <select id="days" name="days">
+                <option value="3">3 days</option>
+                <option value="4">4 days</option>
+                <option value="5">5 days</option>
+                <option value="6">6 days</option>
                 <option value="7" selected>7 days (1 week)</option>
+                <option value="8">8 days</option>
+                <option value="10">10 days</option>
+                <option value="12">12 days</option>
                 <option value="14">14 days (2 weeks)</option>
             </select>
         </div>
-        
+
         <div class="form-group">
             <input type="checkbox" id="use_ai" name="use_ai" checked>
             <label for="use_ai">Use AI for meal ordering (requires AI provider)</label>
         </div>
-        
+
         <button type="submit" class="btn btn-success">Generate Meal Plan</button>
         <a href="{{ url_for('meal_plans') }}" class="btn btn-secondary">Cancel</a>
     </form>
-    
+
     <div id="loading" style="display: none; margin-top: 20px;">
         <div class="alert alert-info">
             Generating your meal plan... This may take a moment.
@@ -56,19 +63,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 document.getElementById('generateForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const loading = document.getElementById('loading');
     const submitBtn = e.target.querySelector('button[type="submit"]');
-    
+
     loading.style.display = 'block';
     submitBtn.disabled = true;
-    
+
     const data = {
         start_date: document.getElementById('start_date').value,
         days: parseInt(document.getElementById('days').value),
         use_ai: document.getElementById('use_ai').checked
     };
-    
+
     try {
         const response = await fetch('{{ url_for("generate_meal_plan") }}', {
             method: 'POST',
@@ -77,9 +84,9 @@ document.getElementById('generateForm').addEventListener('submit', async (e) => 
             },
             body: JSON.stringify(data)
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             window.location.href = result.redirect;
         } else {

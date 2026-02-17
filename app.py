@@ -428,16 +428,15 @@ def view_meal_plan(plan_id):
     if not plan:
         return "Meal plan not found", 404
 
-    # Add day names
+    # Add day names based on actual dates
     start_date = datetime.strptime(plan.get('start_date', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d')
-    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
     recipes_with_days = []
     for i, recipe in enumerate(plan.get('recipes', [])):
         day_date = start_date + timedelta(days=i)
         recipes_with_days.append({
             'recipe': recipe,
-            'day': days[i % 7],
+            'day': day_date.strftime('%A'),
             'date': day_date.strftime('%Y-%m-%d')
         })
 
@@ -455,16 +454,15 @@ def stage_meal_plan(plan_id):
     if not plan:
         return "Meal plan not found", 404
 
-    # Add day names
+    # Add day names based on actual dates
     start_date = datetime.strptime(plan.get('start_date', datetime.now().strftime('%Y-%m-%d')), '%Y-%m-%d')
-    days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
     recipes_with_days = []
     for i, recipe in enumerate(plan.get('recipes', [])):
         day_date = start_date + timedelta(days=i)
         recipes_with_days.append({
             'recipe': recipe,
-            'day': days[i % 7],
+            'day': day_date.strftime('%A'),
             'date': day_date.strftime('%Y-%m-%d'),
             'day_index': i
         })
