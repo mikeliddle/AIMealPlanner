@@ -50,7 +50,7 @@ The app comes with 10 pre-loaded recipes. Click "Recipes" to see them.
 
 - Click "Generate Plan"
 - Select start date and number of days (7 or 14)
-- Optionally enable AI ordering (requires AI provider setup)
+- Optionally enable AI meal selection from eligible recipes (requires AI provider setup)
 - Click "Generate Meal Plan"
 
 ### 4. Review & Customize Your Plan (Staging Area)
@@ -169,7 +169,7 @@ All data is stored in JSON files:
 
 - Ensure the AI provider is running
 - Check the base URL in `.env` file
-- Try disabling AI ordering to generate plans without it
+- Try disabling AI meal selection to generate plans without it
 
 ### Port 5000 already in use
 

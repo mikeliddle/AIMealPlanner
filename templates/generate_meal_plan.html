@@ -12,7 +12,7 @@
         <a href="{{ url_for('add_recipe') }}" class="btn">Add Recipes</a>
     </div>
     {% else %}
-    <p>You have {{ recipe_count }} recipes available. Generate a meal plan with smart spacing and AI-powered ordering.</p>
+    <p>You have {{ recipe_count }} recipes available. Generate a meal plan with smart spacing and AI-powered meal selection.</p>
 
     <form id="generateForm">
         <div class="form-group">
@@ -37,7 +37,7 @@
 
         <div class="form-group">
             <input type="checkbox" id="use_ai" name="use_ai" checked>
-            <label for="use_ai">Use AI for meal ordering (requires AI provider)</label>
+            <label for="use_ai">Use AI to select meals from eligible recipes (requires AI provider)</label>
         </div>
 
         <button type="submit" class="btn btn-success">Generate Meal Plan</button>

@@ -1,10 +1,135 @@
 """Unit tests for Flask routes in app.py."""
 import json
 from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 
-from app import save_meal_plans, save_recipes
+import app as app_module
+from app import load_users, save_meal_plans, save_recipes
+
+
+class TestAuthRoutes:
+    """Tests for authentication and access control routes."""
+
+    def test_login_page_accessible_without_auth(self, unauth_client):
+        """Test login page is available when not authenticated."""
+        response = unauth_client.get('/login')
+        assert response.status_code == 200
+        assert b'Sign In' in response.data
+
+    def test_protected_routes_redirect_without_auth(self, unauth_client):
+        """Test protected pages require authentication."""
+        response = unauth_client.get('/')
+        assert response.status_code == 302
+        assert '/login' in response.headers['Location']
+
+    def test_json_route_requires_auth(self, unauth_client):
+        """Test JSON endpoints return auth error when unauthenticated."""
+        response = unauth_client.post('/meal-plans/generate',
+                                    data=json.dumps({'days': 7}),
+                                    content_type='application/json')
+        assert response.status_code == 401
+        data = json.loads(response.data)
+        assert data['error'] == 'Authentication required'
+
+    def test_login_success(self, unauth_client):
+        """Test successful login redirects to home."""
+        response = unauth_client.post('/login', data={
+            'username': 'testuser',
+            'password': 'testpass123'
+        })
+        assert response.status_code == 302
+        assert response.headers['Location'].endswith('/')
+
+    def test_login_rejects_scheme_relative_next_url(self, unauth_client):
+        """Test login rejects scheme-relative redirect targets."""
+        response = unauth_client.post('/login?next=//evil.example', data={
+            'username': 'testuser',
+            'password': 'testpass123'
+        })
+
+        assert response.status_code == 302
+        assert response.headers['Location'].endswith('/')
+
+    def test_login_invalid_credentials(self, unauth_client):
+        """Test login failure with invalid credentials."""
+        response = unauth_client.post('/login', data={
+            'username': 'testuser',
+            'password': 'wrong-password'
+        })
+        assert response.status_code == 200
+        assert b'Invalid username or password' in response.data
+
+    def test_logout_ends_session(self, client):
+        """Test logout removes access to protected routes."""
+        response = client.post('/logout')
+        assert response.status_code == 302
+
+        protected = client.get('/')
+        assert protected.status_code == 302
+        assert '/login' in protected.headers['Location']
+
+    def test_change_password_success(self, client):
+        """Test authenticated user can update their own password."""
+        response = client.post('/change-password', data={
+            'current_password': 'testpass123',
+            'new_password': 'newpass123',
+            'confirm_password': 'newpass123'
+        })
+
+        assert response.status_code == 200
+        assert b'Password updated successfully' in response.data
+
+        users = load_users()
+        user = next(u for u in users if u['username'] == 'testuser')
+        assert app_module.verify_password(user['password_hash'], 'newpass123')
+
+    def test_change_password_rejects_invalid_current(self, client):
+        """Test password update fails with wrong current password."""
+        response = client.post('/change-password', data={
+            'current_password': 'wrong-password',
+            'new_password': 'newpass123',
+            'confirm_password': 'newpass123'
+        })
+
+        assert response.status_code == 200
+        assert b'Current password is incorrect' in response.data
+
+    def test_oauth_callback_uses_safe_return_url(self, client):
+        """Test OAuth callback does not redirect to external URLs."""
+        with client.session_transaction() as sess:
+            sess['oauth_state'] = 'state123'
+            sess['oauth_return_url'] = 'https://evil.example/capture'
+
+        with patch('app.exchange_code_for_token', return_value={'success': True}):
+            response = client.get('/oauth2callback?state=state123&code=abc123')
+
+        assert response.status_code == 302
+        assert response.headers['Location'].endswith('/')
+
+    def test_login_rate_limit_after_repeated_failures(self, unauth_client, monkeypatch):
+        """Test repeated failed login attempts are rate-limited."""
+        monkeypatch.setattr(app_module, 'MAX_LOGIN_ATTEMPTS', 2)
+        monkeypatch.setattr(app_module, 'LOGIN_RATE_LIMIT_WINDOW_MINUTES', 15)
+
+        first = unauth_client.post('/login', data={
+            'username': 'testuser',
+            'password': 'wrong-password'
+        })
+        second = unauth_client.post('/login', data={
+            'username': 'testuser',
+            'password': 'wrong-password'
+        })
+        third = unauth_client.post('/login', data={
+            'username': 'testuser',
+            'password': 'wrong-password'
+        })
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert third.status_code == 429
+        assert b'Too many failed login attempts' in third.data
 
 
 class TestIndexRoute:
@@ -215,6 +340,81 @@ class TestMealPlansRoutes:
         plan = next((p for p in plans if p['id'] == data['id']), None)
 
         assert plan['days'] == 7  # Default value
+
+    def test_generate_meal_plan_excludes_recipes_from_previous_two_weeks(self, client, sample_recipes):
+        """Test that recipes used in plans from prior 14 days are excluded."""
+        save_recipes(sample_recipes)
+
+        recent_plan = {
+            'id': 1,
+            'created_at': '2026-01-31T12:00:00',
+            'start_date': '2026-02-01',
+            'days': 7,
+            'recipes': [
+                {'id': 1, 'name': 'Spaghetti Carbonara'},
+                {'id': 2, 'name': 'Chicken Curry'},
+                {'id': 3, 'name': 'Caesar Salad'}
+            ],
+            'grocery_list': []
+        }
+        save_meal_plans([recent_plan])
+
+        plan_request = {
+            'days': 4,
+            'use_ai': False,
+            'start_date': '2026-02-10'
+        }
+
+        response = client.post('/meal-plans/generate',
+                             data=json.dumps(plan_request),
+                             content_type='application/json')
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+
+        from app import load_meal_plans
+        plans = load_meal_plans()
+        plan = next((p for p in plans if p['id'] == data['id']), None)
+
+        generated_ids = {recipe['id'] for recipe in plan['recipes']}
+        assert generated_ids.isdisjoint({1, 2, 3})
+
+    def test_generate_meal_plan_ai_receives_filtered_candidates(self, client, sample_recipes):
+        """Test AI selection receives candidate recipes with recent ones excluded."""
+        save_recipes(sample_recipes)
+
+        recent_plan = {
+            'id': 1,
+            'created_at': '2026-01-31T12:00:00',
+            'start_date': '2026-02-01',
+            'days': 7,
+            'recipes': [
+                {'id': 1, 'name': 'Spaghetti Carbonara'},
+                {'id': 2, 'name': 'Chicken Curry'},
+                {'id': 3, 'name': 'Caesar Salad'}
+            ],
+            'grocery_list': []
+        }
+        save_meal_plans([recent_plan])
+
+        ai_result = sample_recipes[3:7]
+        with patch('app.generate_meal_plan_with_ai', return_value=ai_result) as mock_ai:
+            plan_request = {
+                'days': 4,
+                'use_ai': True,
+                'start_date': '2026-02-10'
+            }
+            response = client.post('/meal-plans/generate',
+                                 data=json.dumps(plan_request),
+                                 content_type='application/json')
+
+        assert response.status_code == 200
+        mock_ai.assert_called_once()
+
+        candidate_recipes = mock_ai.call_args[0][0]
+        candidate_ids = {recipe['id'] for recipe in candidate_recipes}
+        assert candidate_ids.isdisjoint({1, 2, 3})
+        assert mock_ai.call_args[1]['days'] == 4
 
     def test_view_meal_plan_success(self, client, sample_meal_plan):
         """Test viewing a specific meal plan."""

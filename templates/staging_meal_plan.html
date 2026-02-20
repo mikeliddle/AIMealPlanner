@@ -2,6 +2,26 @@
 
 {% block title %}Stage Meal Plan - AI Meal Planner{% endblock %}
 
+{% block extra_styles %}
+<style>
+    #swapModalContent {
+        width: min(600px, calc(100vw - 24px));
+    }
+
+    @media (max-width: 760px) {
+        #swapModalContent {
+            padding: 16px !important;
+            max-height: 88vh !important;
+        }
+
+        #loadingOverlay > div {
+            width: calc(100vw - 28px);
+            padding: 16px !important;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <h2>🎯 Review & Customize Your Meal Plan</h2>

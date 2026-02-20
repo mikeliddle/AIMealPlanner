@@ -4,11 +4,16 @@ import random
 import secrets
 from collections import defaultdict
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
-import google.generativeai as genai
+import click
+from argon2 import PasswordHasher
+from argon2.exceptions import (InvalidHashError, VerificationError,
+                               VerifyMismatchError)
 from dotenv import load_dotenv
 from flask import (Flask, jsonify, redirect, render_template, request, session,
                    url_for)
+from google import genai
 from openai import OpenAI
 
 from utils.calendar_utils import (add_meal_plan_to_calendar,
@@ -20,7 +25,13 @@ from utils.calendar_utils import (add_meal_plan_to_calendar,
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.urandom(24)
+app.config.update({
+    'SECRET_KEY': os.getenv('SECRET_KEY') or os.urandom(32),
+    'SESSION_COOKIE_HTTPONLY': True,
+    'SESSION_COOKIE_SAMESITE': os.getenv('SESSION_COOKIE_SAMESITE', 'Lax'),
+    'SESSION_COOKIE_SECURE': os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true',
+    'PERMANENT_SESSION_LIFETIME': timedelta(hours=max(1, int(os.getenv('SESSION_LIFETIME_HOURS', '12'))))
+})
 
 # AI Client Configuration
 AI_PROVIDER = os.getenv('AI_PROVIDER', 'openai').lower()
@@ -33,9 +44,382 @@ AI_MODEL = os.getenv('AI_MODEL', 'local-model')
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 RECIPES_FILE = os.path.join(DATA_DIR, 'recipes.json')
 MEAL_PLANS_FILE = os.path.join(DATA_DIR, 'meal_plans.json')
+USERS_FILE = os.path.join(DATA_DIR, 'users.json')
 
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
+
+# Login rate limiting
+MAX_LOGIN_ATTEMPTS = max(1, int(os.getenv('MAX_LOGIN_ATTEMPTS', '5')))
+LOGIN_RATE_LIMIT_WINDOW_MINUTES = max(1, int(os.getenv('LOGIN_RATE_LIMIT_WINDOW_MINUTES', '15')))
+LOGIN_ATTEMPTS = defaultdict(list)
+
+PASSWORD_HASHER = PasswordHasher()
+
+
+def hash_password(password):
+    """Hash password using Argon2id."""
+    return PASSWORD_HASHER.hash(password)
+
+
+def verify_password(stored_hash, password):
+    """Verify password against an Argon2 hash."""
+    if not stored_hash:
+        return False
+
+    try:
+        return PASSWORD_HASHER.verify(stored_hash, password)
+    except VerifyMismatchError:
+        return False
+    except (InvalidHashError, VerificationError, ValueError):
+        return False
+
+
+def password_hash_needs_upgrade(stored_hash):
+    """Return True when stored hash should be rehashed with current Argon2 settings."""
+    if not stored_hash:
+        return True
+
+    try:
+        return PASSWORD_HASHER.check_needs_rehash(stored_hash)
+    except (InvalidHashError, ValueError):
+        return True
+
+
+def _normalize_users_data(data):
+    """Normalize users datastore format to a versioned dictionary."""
+    if isinstance(data, dict):
+        users = data.get('users', [])
+        version = data.get('version', 1)
+    elif isinstance(data, list):
+        users = data
+        version = 1
+    else:
+        users = []
+        version = 1
+
+    return {
+        'version': version,
+        'users': users
+    }
+
+
+def _migrate_users_data(users_data):
+    """Migrate legacy user records to hashed-password format."""
+    migrated = False
+    now = datetime.now().isoformat()
+
+    normalized_users = []
+    for idx, user in enumerate(users_data.get('users', []), start=1):
+        if not isinstance(user, dict):
+            continue
+
+        migrated_user = user.copy()
+        migrated_user['id'] = migrated_user.get('id', idx)
+        migrated_user['created_at'] = migrated_user.get('created_at', now)
+        migrated_user['updated_at'] = migrated_user.get('updated_at', now)
+
+        if migrated_user.get('password') and not migrated_user.get('password_hash'):
+            migrated_user['password_hash'] = hash_password(migrated_user.pop('password'))
+            migrated = True
+        elif migrated_user.get('password') and migrated_user.get('password_hash'):
+            migrated_user.pop('password', None)
+            migrated = True
+
+        if migrated_user.get('password_hash'):
+            normalized_users.append(migrated_user)
+
+    normalized = {
+        'version': 1,
+        'users': normalized_users
+    }
+
+    return normalized, migrated
+
+
+def save_users(users):
+    """Save users to JSON file in versioned format."""
+    with open(USERS_FILE, 'w') as f:
+        json.dump({'version': 1, 'users': users}, f, indent=2)
+
+
+def ensure_users_store():
+    """Ensure users datastore exists in versioned format."""
+    if os.path.exists(USERS_FILE):
+        return
+
+    save_users([])
+
+
+def load_users():
+    """Load users from JSON file with legacy migration support."""
+    ensure_users_store()
+
+    with open(USERS_FILE, 'r') as f:
+        users_data = _normalize_users_data(json.load(f))
+
+    migrated_data, changed = _migrate_users_data(users_data)
+    if changed or migrated_data.get('version') != users_data.get('version'):
+        with open(USERS_FILE, 'w') as f:
+            json.dump(migrated_data, f, indent=2)
+
+    return migrated_data.get('users', [])
+
+
+def find_user_by_username(username):
+    """Find a user by username (case-insensitive)."""
+    normalized_username = (username or '').strip().lower()
+    if not normalized_username:
+        return None
+
+    users = load_users()
+    return next((u for u in users if u.get('username', '').lower() == normalized_username), None)
+
+
+def update_user_password(username, new_password):
+    """Update a user's password hash."""
+    users = load_users()
+    now = datetime.now().isoformat()
+
+    for user in users:
+        if user.get('username', '').lower() == username.lower():
+            user['password_hash'] = hash_password(new_password)
+            user['updated_at'] = now
+            save_users(users)
+            return True
+
+    return False
+
+
+def create_user(username, password):
+    """Create a new user with a hashed password."""
+    normalized_username = (username or '').strip()
+    if not normalized_username:
+        raise ValueError('Username is required.')
+
+    if len(password or '') < 8:
+        raise ValueError('Password must be at least 8 characters.')
+
+    users = load_users()
+    if any(u.get('username', '').lower() == normalized_username.lower() for u in users):
+        raise ValueError('User already exists.')
+
+    now = datetime.now().isoformat()
+    user = {
+        'id': max([u.get('id', 0) for u in users], default=0) + 1,
+        'username': normalized_username,
+        'password_hash': hash_password(password),
+        'created_at': now,
+        'updated_at': now
+    }
+
+    users.append(user)
+    save_users(users)
+    return user
+
+
+def is_authenticated():
+    """Check if request session is authenticated."""
+    return bool(session.get('username'))
+
+
+def current_user():
+    """Return currently authenticated user record."""
+    username = session.get('username')
+    if not username:
+        return None
+    return find_user_by_username(username)
+
+
+def _is_json_request():
+    """Return True when request expects JSON response."""
+    accepts_json = request.accept_mimetypes.accept_json
+    accepts_html = request.accept_mimetypes.accept_html
+    return request.is_json or (accepts_json and not accepts_html)
+
+
+def _get_or_create_csrf_token():
+    """Return session CSRF token, creating one when needed."""
+    token = session.get('csrf_token')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['csrf_token'] = token
+    return token
+
+
+def _is_csrf_protected_method():
+    """Return True when request method requires CSRF validation."""
+    return request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}
+
+
+def _is_valid_csrf_request():
+    """Validate CSRF token from headers or form data."""
+    expected_token = session.get('csrf_token')
+    provided_token = (
+        request.headers.get('X-CSRF-Token')
+        or request.headers.get('X-CSRFToken')
+        or request.form.get('csrf_token')
+    )
+
+    if not expected_token or not provided_token:
+        return False
+
+    return secrets.compare_digest(expected_token, provided_token)
+
+
+def _csrf_error_response():
+    """Return a CSRF validation error response."""
+    if _is_json_request():
+        return jsonify({'error': 'Invalid CSRF token'}), 400
+    return 'Invalid CSRF token', 400
+
+
+@app.context_processor
+def inject_csrf_token():
+    """Inject CSRF token into all templates."""
+    return {'csrf_token': _get_or_create_csrf_token()}
+
+
+@app.before_request
+def require_authentication():
+    """Require authentication for all routes except login and static assets."""
+    if request.endpoint in {'login', 'static', 'health'}:
+        return None
+
+    if request.endpoint is None:
+        return None
+
+    if is_authenticated():
+        if _is_csrf_protected_method() and not _is_valid_csrf_request():
+            return _csrf_error_response()
+        return None
+
+    if _is_json_request():
+        return jsonify({'error': 'Authentication required', 'redirect': url_for('login')}), 401
+
+    return redirect(url_for('login', next=request.path))
+
+
+def _get_safe_next_url(default_endpoint='index'):
+    """Return safe local redirect destination from request params."""
+    next_url = request.args.get('next') or request.form.get('next')
+    if next_url:
+        return _get_safe_redirect_target(next_url, default_endpoint=default_endpoint)
+    return url_for(default_endpoint)
+
+
+def _get_safe_redirect_target(target_url, default_endpoint='index'):
+    """Return safe in-app redirect path, rejecting external URLs."""
+    default_url = url_for(default_endpoint)
+    if not target_url:
+        return default_url
+
+    parsed_url = urlparse(target_url)
+
+    if parsed_url.scheme or parsed_url.netloc:
+        if parsed_url.netloc != request.host:
+            return default_url
+
+        safe_path = parsed_url.path if parsed_url.path.startswith('/') else '/'
+        if parsed_url.query:
+            safe_path += f"?{parsed_url.query}"
+        return safe_path
+
+    if target_url.startswith('/') and not target_url.startswith('//'):
+        return target_url
+
+    return default_url
+
+
+def _prepare_calendar_authorization(return_url=None):
+    """Prepare OAuth state and return Google authorization URL."""
+    state = secrets.token_urlsafe(32)
+    session['oauth_state'] = state
+
+    target_url = return_url or request.referrer
+    session['oauth_return_url'] = _get_safe_redirect_target(target_url, default_endpoint='index')
+
+    return get_authorization_url(state)
+
+
+def _get_client_ip():
+    """Return best-effort client IP address."""
+    forwarded_for = request.headers.get('X-Forwarded-For', '')
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+
+def _login_attempt_key(username):
+    """Build stable key for login attempt tracking."""
+    normalized_username = (username or '').strip().lower() or '__blank__'
+    return f"{_get_client_ip()}:{normalized_username}"
+
+
+def _prune_login_attempts(attempts, now):
+    """Drop login attempts outside rate-limit window."""
+    window_start = now - timedelta(minutes=LOGIN_RATE_LIMIT_WINDOW_MINUTES)
+    return [attempt_time for attempt_time in attempts if attempt_time >= window_start]
+
+
+def _get_login_rate_limit_status(username):
+    """Return rate-limit status for a login identifier."""
+    now = datetime.now()
+    key = _login_attempt_key(username)
+    attempts = _prune_login_attempts(LOGIN_ATTEMPTS.get(key, []), now)
+    LOGIN_ATTEMPTS[key] = attempts
+
+    if len(attempts) < MAX_LOGIN_ATTEMPTS:
+        return False, 0
+
+    oldest_attempt = attempts[0]
+    retry_after = timedelta(minutes=LOGIN_RATE_LIMIT_WINDOW_MINUTES) - (now - oldest_attempt)
+    retry_after_seconds = max(1, int(retry_after.total_seconds()))
+    return True, retry_after_seconds
+
+
+def _record_failed_login_attempt(username):
+    """Record a failed login attempt for rate limiting."""
+    key = _login_attempt_key(username)
+    now = datetime.now()
+    attempts = _prune_login_attempts(LOGIN_ATTEMPTS.get(key, []), now)
+    attempts.append(now)
+    LOGIN_ATTEMPTS[key] = attempts
+
+
+def _clear_failed_login_attempts(username):
+    """Clear failed login attempts after successful login."""
+    key = _login_attempt_key(username)
+    LOGIN_ATTEMPTS.pop(key, None)
+
+
+@app.cli.command('create-user')
+@click.argument('username')
+def create_user_command(username):
+    """Create a local app user."""
+    password = click.prompt('Password', hide_input=True, confirmation_prompt=True)
+
+    try:
+        create_user(username, password)
+    except ValueError as e:
+        raise click.ClickException(str(e))
+
+    click.echo(f"User '{username}' created.")
+
+
+@app.cli.command('reset-password')
+@click.argument('username')
+def reset_password_command(username):
+    """Reset password for an existing local app user."""
+    password = click.prompt('Password', hide_input=True, confirmation_prompt=True)
+
+    if len(password or '') < 8:
+        raise click.ClickException('Password must be at least 8 characters.')
+
+    if not update_user_password(username, password):
+        raise click.ClickException(f"User '{username}' not found.")
+
+    click.echo(f"Password updated for '{username}'.")
 
 
 def load_recipes():
@@ -70,8 +454,7 @@ def get_ai_client():
     """Create and return an AI client based on the configured provider."""
     if AI_PROVIDER == 'gemini':
         # Configure and return Gemini client
-        genai.configure(api_key=GOOGLE_API_KEY)
-        return genai.GenerativeModel(AI_MODEL)
+        return genai.Client(api_key=GOOGLE_API_KEY)
     else:
         # Return OpenAI-compatible client (default)
         return OpenAI(
@@ -82,6 +465,61 @@ def get_ai_client():
 
 # Main dish categories to include in meal planning
 MAIN_DISH_CATEGORIES = {'Beef', 'Chicken', 'Pork', 'Pasta', 'Pizza', 'Beans', 'Vegetable', 'Sandwich', 'Soup'}
+
+
+def _parse_plan_start_date(plan):
+    """Parse and return a meal plan start date, or None if unavailable."""
+    start_date = plan.get('start_date')
+    if start_date:
+        try:
+            return datetime.strptime(start_date, '%Y-%m-%d').date()
+        except ValueError:
+            try:
+                return datetime.fromisoformat(start_date).date()
+            except ValueError:
+                pass
+
+    created_at = plan.get('created_at')
+    if created_at:
+        try:
+            return datetime.fromisoformat(created_at).date()
+        except ValueError:
+            pass
+
+    return None
+
+
+def _recipes_used_in_recent_plans(meal_plans, reference_start_date, lookback_days=14):
+    """Return recipe keys used in plans that overlap the lookback window before a plan start date."""
+    window_start = reference_start_date - timedelta(days=lookback_days)
+    window_end = reference_start_date - timedelta(days=1)
+
+    used_recipe_keys = set()
+
+    for plan in meal_plans:
+        plan_start = _parse_plan_start_date(plan)
+        if not plan_start:
+            continue
+
+        plan_days = int(plan.get('days') or len(plan.get('recipes', [])) or 0)
+        if plan_days <= 0:
+            continue
+
+        plan_end = plan_start + timedelta(days=plan_days - 1)
+
+        if plan_end < window_start or plan_start > window_end:
+            continue
+
+        for recipe in plan.get('recipes', []):
+            recipe_id = recipe.get('id')
+            if recipe_id is not None:
+                used_recipe_keys.add(('id', recipe_id))
+
+            recipe_name = (recipe.get('name') or '').strip().lower()
+            if recipe_name:
+                used_recipe_keys.add(('name', recipe_name))
+
+    return used_recipe_keys
 
 def select_recipes_for_week(all_recipes, previous_recipes=None, days=7):
     """
@@ -144,16 +582,24 @@ def select_recipes_for_week(all_recipes, previous_recipes=None, days=7):
     return selected
 
 
-def generate_meal_plan_with_ai(recipes):
+def generate_meal_plan_with_ai(recipes, days=None):
     """
-    Use AI to generate a suggested meal plan ordering.
+    Use AI to select and order recipes for a meal plan.
 
     Args:
-        recipes: List of recipes to include in the meal plan
+        recipes: Candidate recipes available for selection
+        days: Number of recipes needed in the meal plan
 
     Returns:
-        List of recipes in suggested order for the week
+        List of selected recipes in suggested order
     """
+    if not recipes:
+        return []
+
+    requested_days = int(days) if days is not None else len(recipes)
+    target_count = min(max(requested_days, 0), len(recipes))
+    fallback_recipes = recipes[:target_count]
+
     try:
         client = get_ai_client()
 
@@ -164,21 +610,23 @@ def generate_meal_plan_with_ai(recipes):
                 f"{i+1}. {recipe['name']}: {recipe.get('description', 'No description')}"
             )
 
-        prompt = f"""Given these main dish recipes for a week, suggest the best order to eat them throughout the week (Monday to Sunday).
-Consider variety, nutritional balance, and typical weekly eating patterns. These are all main dishes (one per day).
+        prompt = f"""You are selecting meals for a {target_count}-day plan.
+    Choose exactly {target_count} UNIQUE recipes from this candidate list and return them in the order they should be eaten.
+    Consider variety, nutritional balance, and typical weekly eating patterns.
 
 Recipes:
 {chr(10).join(recipe_descriptions)}
 
-Respond with ONLY a JSON array of numbers representing the recipe order (e.g., [3, 1, 5, 2, 7, 4, 6]).
+    Respond with ONLY a JSON array of recipe numbers (e.g., [3, 1, 5, 2]).
 Do not include any other text or explanation."""
 
         if AI_PROVIDER == 'gemini':
             # Use Gemini API
             full_prompt = "You are a helpful meal planning assistant. Always respond with valid JSON only.\n\n" + prompt
-            response = client.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = client.models.generate_content(
+                model=AI_MODEL,
+                contents=full_prompt,
+                config=genai.types.GenerateContentConfig(
                     temperature=0.7,
                     max_output_tokens=500,
                 )
@@ -213,7 +661,7 @@ Do not include any other text or explanation."""
         # Check if we got a valid response
         if not result:
             print("AI returned empty response")
-            return recipes
+            return fallback_recipes
 
         # Parse the JSON response
         try:
@@ -231,27 +679,39 @@ Do not include any other text or explanation."""
                     print("Successfully fixed incomplete JSON")
                 except:
                     print("Could not fix JSON, using fallback")
-                    return recipes
+                    return fallback_recipes
             else:
-                return recipes
+                return fallback_recipes
 
-        # Reorder recipes based on AI suggestion
-        reordered = []
+        if not isinstance(order, list):
+            return fallback_recipes
+
+        # Select recipes based on AI suggestion (first occurrence of each valid index)
+        selected_indices = []
+        seen_indices = set()
+
         for idx in order:
-            if 1 <= idx <= len(recipes):
-                reordered.append(recipes[idx - 1])
+            if isinstance(idx, int) and 1 <= idx <= len(recipes) and idx not in seen_indices:
+                selected_indices.append(idx)
+                seen_indices.add(idx)
 
-        # Add any missing recipes
-        for recipe in recipes:
-            if recipe not in reordered:
-                reordered.append(recipe)
+            if len(selected_indices) >= target_count:
+                break
 
-        return reordered[:len(recipes)]
+        # Fill with remaining candidates if AI returned too few valid choices
+        if len(selected_indices) < target_count:
+            for idx in range(1, len(recipes) + 1):
+                if idx not in seen_indices:
+                    selected_indices.append(idx)
+                    if len(selected_indices) >= target_count:
+                        break
+
+        return [recipes[idx - 1] for idx in selected_indices[:target_count]]
 
     except Exception as e:
         print(f"AI meal plan generation failed: {e}")
-        # Fallback to original order
-        return recipes
+        # Fallback to original candidate order
+        return fallback_recipes
 
 
 def generate_grocery_list(recipes):
@@ -298,6 +758,81 @@ def generate_grocery_list(recipes):
         })
 
     return result
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page and authentication endpoint."""
+    if is_authenticated():
+        return redirect(url_for('index'))
+
+    error = None
+    next_url = _get_safe_next_url()
+
+    if request.method == 'POST':
+        username = (request.form.get('username') or '').strip()
+        password = request.form.get('password') or ''
+
+        is_rate_limited, retry_after_seconds = _get_login_rate_limit_status(username)
+        if is_rate_limited:
+            retry_after_minutes = max(1, retry_after_seconds // 60)
+            error = f'Too many failed login attempts. Try again in {retry_after_minutes} minute(s).'
+            return render_template('login.html', error=error, next_url=next_url), 429
+
+        user = find_user_by_username(username)
+        if user and verify_password(user.get('password_hash', ''), password):
+            if password_hash_needs_upgrade(user.get('password_hash', '')):
+                update_user_password(user['username'], password)
+            session.clear()
+            session.permanent = True
+            session['username'] = user['username']
+            session['user_id'] = user.get('id')
+            session['csrf_token'] = secrets.token_urlsafe(32)
+            _clear_failed_login_attempts(username)
+            return redirect(next_url)
+
+        _record_failed_login_attempt(username)
+        error = 'Invalid username or password.'
+
+    return render_template('login.html', error=error, next_url=next_url)
+
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    """Log out current user."""
+    session.clear()
+    return redirect(url_for('login'))
+
+
+@app.route('/change-password', methods=['GET', 'POST'])
+def change_password():
+    """Allow authenticated user to update their own password."""
+    user = current_user()
+    if not user:
+        return redirect(url_for('login'))
+
+    error = None
+    success = None
+
+    if request.method == 'POST':
+        current_password = request.form.get('current_password') or ''
+        new_password = request.form.get('new_password') or ''
+        confirm_password = request.form.get('confirm_password') or ''
+
+        if not verify_password(user.get('password_hash', ''), current_password):
+            error = 'Current password is incorrect.'
+        elif len(new_password) < 8:
+            error = 'New password must be at least 8 characters.'
+        elif new_password != confirm_password:
+            error = 'New password and confirmation do not match.'
+        elif verify_password(user.get('password_hash', ''), new_password):
+            error = 'New password must be different from current password.'
+        elif update_user_password(user['username'], new_password):
+            success = 'Password updated successfully.'
+        else:
+            error = 'Unable to update password.'
+
+    return render_template('change_password.html', error=error, success=success)
 
 
 @app.route('/')
@@ -365,6 +900,13 @@ def generate_meal_plan():
         data = request.json
         days = data.get('days', 7)
         use_ai = data.get('use_ai', True)
+        start_date_str = data.get('start_date', datetime.now().strftime('%Y-%m-%d'))
+
+        try:
+            plan_start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            plan_start_date = datetime.now().date()
+            start_date_str = plan_start_date.strftime('%Y-%m-%d')
 
         # Load recipes and previous meal plans
         all_recipes = load_recipes()
@@ -378,17 +920,32 @@ def generate_meal_plan():
         if not main_dishes:
             return jsonify({'error': 'No main dish recipes available. Please add recipes with categories: Beef, Chicken, Pork, Pasta, Pizza, Beans, Vegetable, Sandwich, or Soup'}), 400
 
+        # Exclude recipes used in plans that overlap the previous 2 weeks
+        recent_recipe_keys = _recipes_used_in_recent_plans(meal_plans, plan_start_date, lookback_days=14)
+        filtered_main_dishes = []
+        for recipe in main_dishes:
+            recipe_id = recipe.get('id')
+            recipe_name = (recipe.get('name') or '').strip().lower()
+
+            id_is_recent = recipe_id is not None and ('id', recipe_id) in recent_recipe_keys
+            name_is_recent = recipe_name and ('name', recipe_name) in recent_recipe_keys
+
+            if not id_is_recent and not name_is_recent:
+                filtered_main_dishes.append(recipe)
+
+        if not filtered_main_dishes:
+            return jsonify({'error': 'No eligible main dish recipes available after excluding meals used in the previous 2 weeks.'}), 400
+
         # Get previous recipes for spacing
         previous_recipes = []
         for plan in sorted(meal_plans, key=lambda x: x.get('created_at', ''), reverse=True)[:4]:
             previous_recipes.extend(plan.get('recipes', []))
 
-        # Select recipes with spacing (only main dishes)
-        selected_recipes = select_recipes_for_week(all_recipes, previous_recipes, days)
-
-        # Optionally use AI to order them
+        # Select recipes from eligible candidates
         if use_ai:
-            selected_recipes = generate_meal_plan_with_ai(selected_recipes)
+            selected_recipes = generate_meal_plan_with_ai(filtered_main_dishes, days=days)
+        else:
+            selected_recipes = select_recipes_for_week(filtered_main_dishes, previous_recipes, days)
 
         # Generate grocery list
         grocery_list = generate_grocery_list(selected_recipes)
@@ -397,7 +954,7 @@ def generate_meal_plan():
         meal_plan = {
             'id': max([p.get('id', 0) for p in meal_plans], default=0) + 1,
             'created_at': datetime.now().isoformat(),
-            'start_date': data.get('start_date', datetime.now().strftime('%Y-%m-%d')),
+            'start_date': start_date_str,
             'days': days,
             'recipes': selected_recipes,
             'grocery_list': grocery_list,
@@ -539,10 +1096,17 @@ def accept_meal_plan(plan_id):
             pass
         elif 'authenticate' in calendar_result.get('error', '').lower():
             # User needs to authorize - DON'T accept the plan yet
+            auth_url = _prepare_calendar_authorization(request.referrer)
+            if not auth_url:
+                return jsonify({
+                    'success': False,
+                    'error': 'Could not generate authorization URL. Please ensure credentials.json is configured.'
+                }), 500
+
             return jsonify({
                 'success': False,
                 'needs_authorization': True,
-                'authorization_url': url_for('authorize_calendar'),
+                'authorization_url': auth_url,
                 'message': 'Please authorize Google Calendar access first'
             })
 
@@ -594,10 +1158,17 @@ def add_plan_to_calendar(plan_id):
         })
     elif 'authenticate' in calendar_result.get('error', '').lower():
         # User needs to authorize
+        auth_url = _prepare_calendar_authorization(request.referrer)
+        if not auth_url:
+            return jsonify({
+                'success': False,
+                'error': 'Could not generate authorization URL. Please ensure credentials.json is configured.'
+            }), 500
+
         return jsonify({
             'success': False,
             'needs_authorization': True,
-            'authorization_url': url_for('authorize_calendar'),
+            'authorization_url': auth_url,
             'message': 'Please authorize Google Calendar access first'
         })
     else:
@@ -651,25 +1222,20 @@ def health():
 
 # ==================== Google Calendar OAuth Routes ====================
 
-@app.route('/authorize-calendar')
+@app.route('/authorize-calendar', methods=['POST'])
 def authorize_calendar():
     """Initiate Google Calendar OAuth flow."""
-    # Generate a random state for CSRF protection
-    state = secrets.token_urlsafe(32)
-    session['oauth_state'] = state
-
-    # Store the referring page to redirect back after authorization
-    session['oauth_return_url'] = request.referrer or url_for('index')
-
-    # Get authorization URL
-    auth_url = get_authorization_url(state)
+    auth_url = _prepare_calendar_authorization(request.referrer)
 
     if not auth_url:
         return jsonify({
             'error': 'Could not generate authorization URL. Please ensure credentials.json is configured.'
         }), 500
 
-    return redirect(auth_url)
+    return jsonify({
+        'success': True,
+        'authorization_url': auth_url
+    })
 
 
 @app.route('/oauth2callback')
@@ -691,7 +1257,7 @@ def oauth2callback():
 
     # Clear OAuth session data
     session.pop('oauth_state', None)
-    return_url = session.pop('oauth_return_url', url_for('index'))
+    return_url = _get_safe_redirect_target(session.pop('oauth_return_url', None), default_endpoint='index')
 
     if result.get('success'):
         # Redirect back to the original page
@@ -700,7 +1266,7 @@ def oauth2callback():
         return f"Authorization failed: {result.get('error')}", 500
 
 
-@app.route('/revoke-calendar')
+@app.route('/revoke-calendar', methods=['POST'])
 def revoke_calendar():
     """Revoke Google Calendar authorization."""
     token_file = os.path.join(DATA_DIR, 'token.json')

@@ -16,7 +16,7 @@
         <a href="{{ url_for('recipes') }}" class="btn">View Recipes</a>
         <a href="{{ url_for('add_recipe') }}" class="btn btn-success">Add Recipe</a>
     </div>
-    
+
     <div class="card">
         <h2>📅 Meal Plans</h2>
         <p>You have created <strong>{{ meal_plan_count }}</strong> meal plan(s).</p>
@@ -24,7 +24,7 @@
         <a href="{{ url_for('meal_plans') }}" class="btn">View Plans</a>
         <a href="{{ url_for('generate_meal_plan') }}" class="btn btn-success">Generate New Plan</a>
     </div>
-    
+
     <div class="card">
         <h2>🤖 AI Integration</h2>
         <p>Connect with LMStudio or OpenWebUI for intelligent meal planning.</p>
@@ -33,17 +33,5 @@
             Configure your AI provider in the <code>.env</code> file.
         </div>
     </div>
-</div>
-
-<div class="card">
-    <h2>Features</h2>
-    <ul style="list-style-position: inside;">
-        <li>✅ Generate weekly meal plans from your recipe collection</li>
-        <li>✅ Smart recipe spacing - no repetition within a week</li>
-        <li>✅ AI-powered meal ordering for balanced nutrition</li>
-        <li>✅ Automatic grocery list generation with quantity aggregation</li>
-        <li>✅ Local AI provider support (LMStudio, OpenWebUI)</li>
-        <li>✅ Docker containerized for easy deployment</li>
-    </ul>
 </div>
 {% endblock %}

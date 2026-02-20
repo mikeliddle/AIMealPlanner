@@ -70,6 +70,7 @@ pytest -x
 ### Fixtures (`tests/conftest.py`)
 
 The test suite uses pytest fixtures for:
+
 - `app`: Configured Flask application for testing
 - `client`: Test client for making HTTP requests
 - `sample_recipe`: Single recipe for testing
@@ -81,11 +82,13 @@ The test suite uses pytest fixtures for:
 All tests are located in the `tests/` directory and organized into classes by functionality:
 
 **tests/test_utils.py:**
+
 - `TestDataPersistence`: Loading/saving recipes and meal plans
 - `TestRecipeSelection`: Recipe selection with spacing algorithms
 - `TestGroceryList`: Grocery list generation and aggregation
 
 **tests/test_routes.py:**
+
 - `TestIndexRoute`: Home page
 - `TestRecipesRoutes`: Recipe CRUD operations
 - `TestMealPlansRoutes`: Meal plan generation and viewing
@@ -93,17 +96,20 @@ All tests are located in the `tests/` directory and organized into classes by fu
 - `TestIntegration`: End-to-end workflow tests
 
 **tests/test_ai.py:**
+
 - `TestAIClient`: AI client configuration
-- `TestAIMealPlanGeneration`: AI-powered meal ordering
+- `TestAIMealPlanGeneration`: AI-powered meal selection and ordering
 - `TestAIIntegration`: AI integration in full workflow
 
 ## Coverage Goals
 
 Current test coverage targets:
+
 - Line coverage: >90%
 - Branch coverage: >85%
 
 Areas covered:
+
 - ✅ All route handlers
 - ✅ Data persistence functions
 - ✅ Recipe selection algorithms
@@ -114,6 +120,7 @@ Areas covered:
 ## Mocking
 
 The test suite uses `pytest-mock` and `unittest.mock` to mock:
+
 - File I/O operations (via temporary directories)
 - OpenAI API calls
 - External dependencies

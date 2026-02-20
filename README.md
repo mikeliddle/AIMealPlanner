@@ -9,11 +9,12 @@ An AI-powered meal planning application that generates weekly meal plans from yo
 ✅ **Recipe Swapping**: Easily swap any recipe in a staged plan
 ✅ **Google Calendar Integration**: Automatically add accepted meal plans to your calendar
 ✅ **Recipe Spacing**: Intelligent algorithm ensures recipes don't repeat in a given week and maintains spacing across weeks
-✅ **AI-Powered Ordering**: Optional AI integration to optimize meal order for nutritional balance
+✅ **AI-Powered Selection**: Optional AI integration to choose and order meals from eligible recipes
 ✅ **Grocery List Aggregation**: Automatically generates shopping lists with combined quantities (e.g., 2 recipes requiring 3 cups flour = 6 cups total)
 ✅ **Flexible AI Integration**: Works with Google Gemini, LMStudio, OpenWebUI, or any OpenAI-compatible API
 ✅ **Docker Support**: Easy deployment with Docker and docker-compose
 ✅ **Web Interface**: Clean, responsive web UI for managing recipes and meal plans
+✅ **Authentication**: Login required for all application routes, with hashed+salted password storage
 
 ## Quick Start
 
@@ -58,6 +59,29 @@ pip install -r requirements.txt
 python app.py
 ```
 
+### Authentication
+
+- All routes require authentication except `/login`
+- No default users are created on first run
+- User accounts are provisioned through CLI commands only
+- Passwords are stored as hashed+salted values in `data/users.json`
+
+### Admin User CLI
+
+Create a user:
+
+```bash
+flask --app app.py create-user USERNAME
+```
+
+Reset a user's password:
+
+```bash
+flask --app app.py reset-password USERNAME
+```
+
+Both commands securely prompt for password input with hidden characters.
+
 See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed instructions and usage guide.
 
 ## Configuration
@@ -97,6 +121,7 @@ To enable Google Calendar integration for adding meal plans:
    - After authorization, a `data/token.json` file will be created for future use
 
 4. **Using with Docker**:
+
    ```bash
    # Mount the credentials file
    docker run -v $(pwd)/data:/app/data aimealplanner
@@ -133,7 +158,7 @@ The meal planner uses a weighted selection system that:
 
 ### AI Integration
 
-If enabled, the AI provider analyzes nutritional balance and suggests optimal meal ordering for the week.
+If enabled, the AI provider selects and orders meals from eligible recipes while considering nutritional balance and variety.
 
 ### Google Calendar Integration
 
@@ -175,6 +200,7 @@ aimealplanner/
 └── data/                 # JSON storage (NOT in git/Docker image)
     ├── recipes.json      # Your recipes
     ├── meal_plans.json   # Your meal plans
+   ├── users.json        # User accounts with hashed+salted passwords
     ├── credentials.json  # Google OAuth (optional, NEVER commit!)
     └── token.json       # Google token (auto-generated, NEVER commit!)
 ```
@@ -194,6 +220,15 @@ aimealplanner/
 - `data/token.json` - OAuth access tokens
 - `data/recipes.json` - Your personal recipes
 - `data/meal_plans.json` - Your personal meal plans
+- `data/users.json` - Your local users and password hashes
+
+## Data Migration
+
+If you have a legacy `data/users.json` format, run:
+
+```bash
+python utils/migrate_users_store.py --file data/users.json
+```
 
 ## Testing
 

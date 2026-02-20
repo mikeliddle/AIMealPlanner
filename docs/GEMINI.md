@@ -17,14 +17,14 @@ This application now supports Google Gemini AI in addition to OpenAI-compatible 
 ```env
 AI_PROVIDER=gemini
 GOOGLE_API_KEY=your-actual-api-key-here
-AI_MODEL=gemini-pro
+AI_MODEL=gemini-2.0-flash
 ```
 
 ### Available Gemini Models
 
-- `gemini-pro` - Best for text-based tasks (recommended for meal planning)
-- `gemini-1.5-pro` - Latest model with improved capabilities
-- `gemini-1.5-flash` - Faster, more efficient model
+- `gemini-2.0-flash` - Strong default for speed and quality (recommended for meal planning)
+- `gemini-2.0-flash-lite` - Lower-cost, faster option for simpler prompts
+- `gemini-2.5-pro` - Best for more complex reasoning tasks
 
 ## Switching Between Providers
 
@@ -35,7 +35,7 @@ You can easily switch between Google Gemini and OpenAI-compatible APIs by changi
 ```env
 AI_PROVIDER=gemini
 GOOGLE_API_KEY=your-api-key
-AI_MODEL=gemini-pro
+AI_MODEL=gemini-2.0-flash
 ```
 
 ### For OpenAI-compatible APIs (LMStudio, OpenWebUI, etc.)
@@ -61,10 +61,7 @@ After setting up your API key, restart the application and try generating a meal
 
 ## Pricing
 
-Google Gemini has a generous free tier:
-
-- 60 requests per minute
-- 1500 requests per day (for gemini-pro)
+Google Gemini has a free tier with limits that vary by model and can change over time.
 
 For current pricing, visit: <https://ai.google.dev/pricing>
 
@@ -83,5 +80,5 @@ For current pricing, visit: <https://ai.google.dev/pricing>
 
 ### Model not found
 
-- Verify you're using a valid model name (e.g., `gemini-pro`, not `gpt-4`)
+- Verify you're using a valid model name (e.g., `gemini-2.0-flash`, not `gpt-4`)
 - Check the [Google AI documentation](https://ai.google.dev/models) for available models

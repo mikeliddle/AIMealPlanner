@@ -73,9 +73,9 @@ Your `data/credentials.json` should look like this:
 
 ## New Routes Added
 
-- `/authorize-calendar` - Initiates OAuth flow
+- `POST /authorize-calendar` - Initiates OAuth flow
 - `/oauth2callback` - Handles Google's OAuth redirect
-- `/revoke-calendar` - Revokes authorization (deletes token.json)
+- `POST /revoke-calendar` - Revokes authorization (deletes token.json)
 
 ## Testing
 

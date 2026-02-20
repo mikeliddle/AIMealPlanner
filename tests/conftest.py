@@ -5,6 +5,7 @@ import tempfile
 
 import pytest
 
+import app as app_module
 from app import app as flask_app
 
 
@@ -21,10 +22,20 @@ def app():
     })
 
     # Override data directory paths
-    import app as app_module
     app_module.DATA_DIR = test_data_dir
     app_module.RECIPES_FILE = os.path.join(test_data_dir, 'recipes.json')
     app_module.MEAL_PLANS_FILE = os.path.join(test_data_dir, 'meal_plans.json')
+    app_module.USERS_FILE = os.path.join(test_data_dir, 'users.json')
+    app_module.LOGIN_ATTEMPTS.clear()
+
+    test_user = {
+        'id': 1,
+        'username': 'testuser',
+        'password_hash': app_module.hash_password('testpass123'),
+        'created_at': '2024-01-01T12:00:00',
+        'updated_at': '2024-01-01T12:00:00'
+    }
+    app_module.save_users([test_user])
 
     yield flask_app
 
@@ -35,7 +46,24 @@ def app():
 
 @pytest.fixture
 def client(app):
-    """Create a test client for the Flask app."""
+    """Create an authenticated test client for the Flask app."""
+    client = app.test_client()
+    client.post('/login', data={
+        'username': 'testuser',
+        'password': 'testpass123'
+    })
+
+    csrf_token = 'test-csrf-token'
+    with client.session_transaction() as sess:
+        sess['csrf_token'] = csrf_token
+    client.environ_base['HTTP_X_CSRF_TOKEN'] = csrf_token
+
+    return client
+
+
+@pytest.fixture
+def unauth_client(app):
+    """Create an unauthenticated test client for auth tests."""
     return app.test_client()
 
 
