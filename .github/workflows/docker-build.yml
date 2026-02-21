@@ -42,6 +42,15 @@ jobs:
           cache-to: type=gha,mode=max
           load: true
 
+      - name: Run test suite in container image
+        run: |
+          docker run --rm \
+            -e PYTHONPATH=/workspace \
+            -w /workspace \
+            -v "${{ github.workspace }}:/workspace" \
+            aimealplanner:test \
+            pytest -q -p no:cacheprovider
+
       - name: Test container starts successfully
         run: |
           # Start the container in detached mode
@@ -86,17 +95,27 @@ jobs:
             exit 1
           fi
 
-          # Test the main page
-          echo "Testing main page..."
+          # Test unauthenticated root behavior (should redirect to login)
+          echo "Testing root route redirect behavior..."
           response=$(docker exec test-container curl -s -o /dev/null \
             -w "%{http_code}" http://localhost:5000/)
-          if [ "$response" != "200" ]; then
-            echo "Main page test failed with status: $response"
+          if [ "$response" != "302" ]; then
+            echo "Root route test failed with status: $response (expected 302)"
             docker logs test-container
             exit 1
           fi
 
-          echo "Main page test passed!"
+          # Test public login page
+          echo "Testing login page..."
+          response=$(docker exec test-container curl -s -o /dev/null \
+            -w "%{http_code}" http://localhost:5000/login)
+          if [ "$response" != "200" ]; then
+            echo "Login page test failed with status: $response"
+            docker logs test-container
+            exit 1
+          fi
+
+          echo "Route checks passed!"
 
       - name: Stop and remove test container
         if: always()
@@ -108,7 +127,7 @@ jobs:
         run: |
           # Test with custom environment variables
           docker run -d --name env-test \
-            -e AI_BASE_URL=http://custom:8080/api \
+            -e AI_BASE_URL=https://custom:8080/api \
             -e AI_API_KEY=custom-key \
             -e AI_MODEL=custom-model \
             -p 5001:5000 \

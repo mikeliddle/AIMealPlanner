@@ -77,10 +77,22 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          load: true
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ${{ env.IMAGE_NAME }}:ci-test
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Run test suite in container image
+        run: |
+          docker run --rm \
+            -e PYTHONPATH=/workspace \
+            -w /workspace \
+            -v "${{ github.workspace }}:/workspace" \
+            ${{ env.IMAGE_NAME }}:ci-test \
+            pytest -q -p no:cacheprovider
 
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
