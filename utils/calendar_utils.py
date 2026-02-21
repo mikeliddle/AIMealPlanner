@@ -3,12 +3,15 @@
 import json
 import os
 from datetime import datetime, timedelta
+import logging
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+
+logger = logging.getLogger(__name__)
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar']
@@ -193,14 +196,18 @@ def add_meal_plan_to_calendar(meal_plan, calendar_id='primary'):
         }
 
     except HttpError as error:
+        # Log full details server-side, but return a generic error message to the client
+        logger.exception("Google Calendar API error while adding meal plan to calendar")
         return {
             'success': False,
-            'error': f'Google Calendar API error: {error}'
+            'error': 'Google Calendar API error while adding to calendar.'
         }
     except Exception as e:
+        # Log unexpected exceptions with stack trace for debugging
+        logger.exception("Unexpected error while adding meal plan to calendar")
         return {
             'success': False,
-            'error': f'Error adding to calendar: {str(e)}'
+            'error': 'Unexpected error while adding to calendar.'
         }
 
 
