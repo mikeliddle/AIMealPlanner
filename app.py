@@ -41,7 +41,7 @@ GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
 AI_MODEL = os.getenv('AI_MODEL', 'local-model')
 
 # Data directory
-DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
+DATA_DIR = os.getenv('DATA_DIR') or os.path.join(os.path.dirname(__file__), 'data')
 RECIPES_FILE = os.path.join(DATA_DIR, 'recipes.json')
 MEAL_PLANS_FILE = os.path.join(DATA_DIR, 'meal_plans.json')
 USERS_FILE = os.path.join(DATA_DIR, 'users.json')

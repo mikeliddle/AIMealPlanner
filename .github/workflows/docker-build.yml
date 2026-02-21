@@ -4,21 +4,21 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'Dockerfile'
-      - 'requirements.txt'
-      - 'app.py'
-      - 'templates/**'
-      - 'data/**'
-      - '.github/workflows/docker-build.yml'
+      - "Dockerfile"
+      - "requirements.txt"
+      - "app.py"
+      - "templates/**"
+      - "data/**"
+      - ".github/workflows/docker-build.yml"
   push:
     branches: [main]
     paths:
-      - 'Dockerfile'
-      - 'requirements.txt'
-      - 'app.py'
-      - 'templates/**'
-      - 'data/**'
-      - '.github/workflows/docker-build.yml'
+      - "Dockerfile"
+      - "requirements.txt"
+      - "app.py"
+      - "templates/**"
+      - "data/**"
+      - ".github/workflows/docker-build.yml"
 
 jobs:
   build:
@@ -45,6 +45,7 @@ jobs:
       - name: Run test suite in container image
         run: |
           docker run --rm \
+            -e DATA_DIR=/tmp/aimealplanner-data \
             -e PYTHONPATH=/workspace \
             -w /workspace \
             -v "${{ github.workspace }}:/workspace" \
