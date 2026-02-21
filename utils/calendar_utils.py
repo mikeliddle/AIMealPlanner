@@ -126,9 +126,11 @@ def exchange_code_for_token(code, state):
             'message': 'Successfully authorized Google Calendar access'
         }
     except Exception as e:
+        # Log detailed error on the server, but return a generic message to the client
+        print(f"Error exchanging code for token: {e}")
         return {
             'success': False,
-            'error': f'Error exchanging code for token: {str(e)}'
+            'error': 'Error exchanging code for token'
         }
 
 
