@@ -191,14 +191,18 @@ def add_meal_plan_to_calendar(meal_plan, calendar_id='primary'):
         }
 
     except HttpError as error:
+        # Log detailed error information on the server, but do not expose it directly to users
+        print(f"Google Calendar API error while adding meal plan: {error}")
         return {
             'success': False,
-            'error': f'Google Calendar API error: {error}'
+            'error': 'Google Calendar API error. Please try again later.'
         }
     except Exception as e:
+        # Log unexpected exceptions for debugging without leaking details to clients
+        print(f"Unexpected error while adding meal plan to calendar: {e}")
         return {
             'success': False,
-            'error': f'Error adding to calendar: {str(e)}'
+            'error': 'An unexpected error occurred while adding the meal plan to the calendar.'
         }
 
 
