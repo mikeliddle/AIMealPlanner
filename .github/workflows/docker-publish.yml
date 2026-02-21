@@ -78,7 +78,7 @@ jobs:
           load: true
           tags: |
             ${{ steps.meta.outputs.tags }}
-            ${{ env.IMAGE_NAME }}:ci-test
+            aimealplanner:ci-test
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -90,7 +90,7 @@ jobs:
             -e PYTHONPATH=/workspace \
             -w /workspace \
             -v "${{ github.workspace }}:/workspace" \
-            ${{ env.IMAGE_NAME }}:ci-test \
+            aimealplanner:ci-test \
             pytest -q -p no:cacheprovider
 
       # Sign the resulting Docker image digest except on PRs.
