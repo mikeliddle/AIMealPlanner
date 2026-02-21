@@ -1264,7 +1264,8 @@ def oauth2callback():
         # Redirect back to the original page
         return redirect(return_url)
     else:
-        return f"Authorization failed: {result.get('error')}", 500
+        # Return a generic error message to avoid exposing internal details
+        return "Authorization failed. Please try again later.", 500
 
 
 @app.route('/revoke-calendar', methods=['POST'])
