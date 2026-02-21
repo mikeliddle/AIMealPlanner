@@ -314,19 +314,20 @@ def _get_safe_redirect_target(target_url, default_endpoint='index'):
     if not target_url:
         return default_url
 
-    parsed_url = urlparse(target_url)
+    # Normalize backslashes, which some browsers treat as path separators
+    normalized_target = target_url.replace('\\', '/')
+    parsed_url = urlparse(normalized_target)
 
+    # Reject any URL that specifies a scheme or network location
     if parsed_url.scheme or parsed_url.netloc:
-        if parsed_url.netloc != request.host:
-            return default_url
+        return default_url
 
-        safe_path = parsed_url.path if parsed_url.path.startswith('/') else '/'
+    # Only allow absolute paths within this application (no protocol-relative URLs)
+    if parsed_url.path.startswith('/') and not parsed_url.path.startswith('//'):
+        safe_path = parsed_url.path
         if parsed_url.query:
             safe_path += f"?{parsed_url.query}"
         return safe_path
-
-    if target_url.startswith('/') and not target_url.startswith('//'):
-        return target_url
 
     return default_url
 
