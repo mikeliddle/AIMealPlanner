@@ -20,6 +20,9 @@ on:
       - "data/**"
       - ".github/workflows/docker-build.yml"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
