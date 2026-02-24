@@ -12,7 +12,7 @@ from argon2.exceptions import (InvalidHashError, VerificationError,
                                VerifyMismatchError)
 from dotenv import load_dotenv
 from flask import (Flask, jsonify, redirect, render_template, request, session,
-                   url_for)
+                   url_for, escape)
 from google import genai
 from openai import OpenAI
 
@@ -1251,7 +1251,7 @@ def oauth2callback():
     code = request.args.get('code')
     if not code:
         error = request.args.get('error', 'Unknown error')
-        return f'Authorization failed: {error}', 400
+        return f'Authorization failed: {escape(error)}', 400
 
     # Exchange code for token
     result = exchange_code_for_token(code, state)
