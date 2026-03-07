@@ -34,7 +34,10 @@
         {% endif %}
         <p><em>{{ recipe.description }}</em></p>
         <p><strong>Ingredients:</strong> {{ recipe.ingredients|length }}</p>
-        <a href="{{ url_for('view_recipe', recipe_id=recipe.id) }}" class="btn btn-secondary">View Details</a>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="{{ url_for('view_recipe', recipe_id=recipe.id) }}" class="btn btn-secondary">View Details</a>
+            <button class="btn btn-danger delete-recipe-btn" data-recipe-id="{{ recipe.id }}" data-recipe-name="{{ recipe.name }}">Delete</button>
+        </div>
     </div>
     {% endfor %}
 </div>
@@ -77,5 +80,31 @@ if (recipeSearch && recipeCards.length > 0) {
         }
     });
 }
+
+document.querySelectorAll('.delete-recipe-btn').forEach(button => {
+    button.addEventListener('click', async function() {
+        const recipeId = this.dataset.recipeId;
+        const recipeName = this.dataset.recipeName;
+
+        if (!confirm(`Delete "${recipeName}" permanently? Existing meal plans will keep their saved copy.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/recipes/${recipeId}/delete`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                window.location.reload();
+            } else {
+                alert('Error deleting recipe: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error: ' + error);
+        }
+    });
+});
 </script>
 {% endblock %}

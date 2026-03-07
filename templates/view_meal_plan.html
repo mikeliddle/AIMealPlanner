@@ -40,11 +40,15 @@ endblock %} {% block content %}
         <td>{{ item.date }}</td>
         <td>{{ item.recipe.name }}</td>
         <td>
+          {% if item.can_view_recipe %}
           <a
             href="{{ url_for('view_recipe', recipe_id=item.recipe.id) }}"
             class="btn btn-secondary"
             >View Recipe</a
           >
+          {% else %}
+          <span style="color: #666">Custom meal</span>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

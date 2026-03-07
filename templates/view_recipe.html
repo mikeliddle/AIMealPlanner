@@ -23,8 +23,36 @@
     <p style="white-space: pre-wrap;">{{ recipe.instructions }}</p>
     {% endif %}
     
-    <div style="margin-top: 20px;">
+    <div style="margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap;">
         <a href="{{ url_for('recipes') }}" class="btn btn-secondary">Back to Recipes</a>
+        <button id="deleteRecipeBtn" class="btn btn-danger">Delete Recipe</button>
     </div>
 </div>
+
+<script>
+const deleteRecipeBtn = document.getElementById('deleteRecipeBtn');
+const recipeName = {{ recipe.name|tojson }};
+if (deleteRecipeBtn) {
+    deleteRecipeBtn.addEventListener('click', async () => {
+        if (!confirm(`Delete "${recipeName}" permanently? Existing meal plans will keep their saved copy.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/recipes/{{ recipe.id }}/delete', {
+                method: 'POST'
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                window.location.href = result.redirect;
+            } else {
+                alert('Error deleting recipe: ' + result.error);
+            }
+        } catch (error) {
+            alert('Error: ' + error);
+        }
+    });
+}
+</script>
 {% endblock %}

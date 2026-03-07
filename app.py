@@ -451,6 +451,27 @@ def save_meal_plans(meal_plans):
         json.dump(meal_plans, f, indent=2)
 
 
+def create_custom_meal_entry(name):
+    """Create a one-off custom meal entry for a meal plan."""
+    custom_name = (name or '').strip()
+    if not custom_name:
+        raise ValueError('Custom meal name is required')
+
+    return {
+        'id': None,
+        'name': custom_name,
+        'description': '',
+        'ingredients': [],
+        'instructions': '',
+        'is_custom': True
+    }
+
+
+def can_view_recipe_details(recipe):
+    """Return True when a meal entry links to a saved recipe."""
+    return bool(recipe and recipe.get('id') is not None and not recipe.get('is_custom'))
+
+
 def get_ai_client():
     """Create and return an AI client based on the configured provider."""
     if AI_PROVIDER == 'gemini':
@@ -583,13 +604,14 @@ def select_recipes_for_week(all_recipes, previous_recipes=None, days=7):
     return selected
 
 
-def generate_meal_plan_with_ai(recipes, days=None):
+def generate_meal_plan_with_ai(recipes, days=None, recent_recipes=None):
     """
     Use AI to select and order recipes for a meal plan.
 
     Args:
         recipes: Candidate recipes available for selection
         days: Number of recipes needed in the meal plan
+        recent_recipes: Recipes used in recent plans for variety context
 
     Returns:
         List of selected recipes in suggested order
@@ -607,13 +629,36 @@ def generate_meal_plan_with_ai(recipes, days=None):
         # Prepare recipe descriptions
         recipe_descriptions = []
         for i, recipe in enumerate(recipes):
+            category = recipe.get('category', 'Uncategorized')
             recipe_descriptions.append(
-                f"{i+1}. {recipe['name']}: {recipe.get('description', 'No description')}"
+                f"{i+1}. {recipe['name']} ({category}): {recipe.get('description', 'No description')}"
             )
+
+        recent_meal_names = []
+        seen_recent_names = set()
+        for recipe in recent_recipes or []:
+            recipe_name = (recipe.get('name') or '').strip()
+            normalized_name = recipe_name.lower()
+            if recipe_name and normalized_name not in seen_recent_names:
+                recent_meal_names.append(recipe_name)
+                seen_recent_names.add(normalized_name)
+            if len(recent_meal_names) >= 12:
+                break
+
+        recent_context = ""
+        if recent_meal_names:
+            recent_context = f"""
+
+Recent meals to avoid repeating or closely imitating:
+{", ".join(recent_meal_names)}
+"""
 
         prompt = f"""You are selecting meals for a {target_count}-day plan.
     Choose exactly {target_count} UNIQUE recipes from this candidate list and return them in the order they should be eaten.
-    Consider variety, nutritional balance, and typical weekly eating patterns.
+    Maximize variety across the week. Favor a diverse mix of categories, proteins, cuisines, cooking styles, and base ingredients.
+    Avoid choosing meals that feel too similar to each other, and avoid repeating the feel of recent plans when strong alternatives are available.
+    If multiple categories are available, spread them across the week before repeating a category. Avoid placing very similar meals on adjacent days.
+    Consider variety, nutritional balance, and typical weekly eating patterns.{recent_context}
 
 Recipes:
 {chr(10).join(recipe_descriptions)}
@@ -885,6 +930,21 @@ def view_recipe(recipe_id):
     return render_template('view_recipe.html', recipe=recipe)
 
 
+@app.route('/recipes/<int:recipe_id>/delete', methods=['POST'])
+def delete_recipe(recipe_id):
+    """Delete a saved recipe."""
+    recipes = load_recipes()
+    recipe = next((r for r in recipes if r.get('id') == recipe_id), None)
+
+    if not recipe:
+        return jsonify({'error': 'Recipe not found'}), 404
+
+    remaining_recipes = [r for r in recipes if r.get('id') != recipe_id]
+    save_recipes(remaining_recipes)
+
+    return jsonify({'success': True, 'redirect': url_for('recipes')})
+
+
 @app.route('/meal-plans')
 def meal_plans():
     """Display all meal plans."""
@@ -944,7 +1004,11 @@ def generate_meal_plan():
 
         # Select recipes from eligible candidates
         if use_ai:
-            selected_recipes = generate_meal_plan_with_ai(filtered_main_dishes, days=days)
+            selected_recipes = generate_meal_plan_with_ai(
+                filtered_main_dishes,
+                days=days,
+                recent_recipes=previous_recipes
+            )
         else:
             selected_recipes = select_recipes_for_week(filtered_main_dishes, previous_recipes, days)
 
@@ -995,7 +1059,8 @@ def view_meal_plan(plan_id):
         recipes_with_days.append({
             'recipe': recipe,
             'day': day_date.strftime('%A'),
-            'date': day_date.strftime('%Y-%m-%d')
+            'date': day_date.strftime('%Y-%m-%d'),
+            'can_view_recipe': can_view_recipe_details(recipe)
         })
 
     return render_template('view_meal_plan.html',
@@ -1022,7 +1087,8 @@ def stage_meal_plan(plan_id):
             'recipe': recipe,
             'day': day_date.strftime('%A'),
             'date': day_date.strftime('%Y-%m-%d'),
-            'day_index': i
+            'day_index': i,
+            'can_view_recipe': can_view_recipe_details(recipe)
         })
 
     # Get all recipes for swap options
@@ -1038,9 +1104,10 @@ def stage_meal_plan(plan_id):
 @app.route('/meal-plans/<int:plan_id>/swap', methods=['POST'])
 def swap_recipe(plan_id):
     """Swap a recipe in a staged meal plan."""
-    data = request.json
+    data = request.json or {}
     day_index = data.get('day_index')
     new_recipe_id = data.get('new_recipe_id')
+    custom_recipe_name = (data.get('custom_recipe_name') or '').strip()
 
     meal_plans = load_meal_plans()
     plan = next((p for p in meal_plans if p.get('id') == plan_id), None)
@@ -1051,12 +1118,27 @@ def swap_recipe(plan_id):
     if plan.get('status') != 'staged':
         return jsonify({'error': 'Can only swap recipes in staged plans'}), 400
 
-    # Get the new recipe
-    all_recipes = load_recipes()
-    new_recipe = next((r for r in all_recipes if r.get('id') == new_recipe_id), None)
+    try:
+        day_index = int(day_index)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid day index'}), 400
 
-    if not new_recipe:
-        return jsonify({'error': 'Recipe not found'}), 404
+    if custom_recipe_name:
+        try:
+            new_recipe = create_custom_meal_entry(custom_recipe_name)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
+    else:
+        try:
+            new_recipe_id = int(new_recipe_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Recipe or custom meal is required'}), 400
+
+        all_recipes = load_recipes()
+        new_recipe = next((r for r in all_recipes if r.get('id') == new_recipe_id), None)
+
+        if not new_recipe:
+            return jsonify({'error': 'Recipe not found'}), 404
 
     # Swap the recipe
     if 0 <= day_index < len(plan['recipes']):
