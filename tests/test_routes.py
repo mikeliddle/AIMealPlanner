@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
+from flask import Flask, session
 
 import app as app_module
 from app import load_recipes, load_users, save_meal_plans, save_recipes
@@ -60,6 +61,28 @@ class TestAuthRoutes:
         })
         assert response.status_code == 200
         assert b'Invalid username or password' in response.data
+
+    def test_session_membership_sets_vary_cookie_header(self):
+        """Test session membership checks still mark responses as cookie-varying."""
+        test_app = Flask(__name__)
+        test_app.config['SECRET_KEY'] = 'test-secret-key'
+
+        @test_app.get('/_test/session-membership-vary')
+        def session_membership_vary():
+            return {'has_csrf': 'csrf_token' in session}
+
+        client = test_app.test_client()
+        with client.session_transaction() as sess:
+            sess['csrf_token'] = 'test-csrf-token'
+
+        response = client.get('/_test/session-membership-vary')
+
+        assert response.status_code == 200
+        assert response.get_json() == {'has_csrf': True}
+        assert 'Cookie' in {
+            value.strip() for value in response.headers.get('Vary', '').split(',')
+            if value.strip()
+        }
 
     def test_logout_ends_session(self, client):
         """Test logout removes access to protected routes."""
