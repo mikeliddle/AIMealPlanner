@@ -150,7 +150,10 @@ class TestAIMealPlanGeneration:
         mock_client.chat.completions.create.return_value = mock_response
 
         with patch('app.get_ai_client', return_value=mock_client):
-            generate_meal_plan_with_ai(sample_recipes[:3])
+            generate_meal_plan_with_ai(
+                sample_recipes[:3],
+                recent_recipes=[{'name': 'Recent Chili'}, {'name': 'Chicken Curry'}]
+            )
 
         # Get the call arguments
         call_args = mock_client.chat.completions.create.call_args
@@ -165,6 +168,9 @@ class TestAIMealPlanGeneration:
         user_prompt = messages[1]['content']
         assert 'Spaghetti Carbonara' in user_prompt
         assert 'Chicken Curry' in user_prompt
+        assert '(Pasta)' in user_prompt
+        assert 'Maximize variety across the week' in user_prompt
+        assert 'Recent Chili' in user_prompt
 
     def test_generate_meal_plan_ai_parameters(self, sample_recipes):
         """Test that AI is called with correct parameters."""

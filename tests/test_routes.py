@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 import app as app_module
-from app import load_users, save_meal_plans, save_recipes
+from app import load_recipes, load_users, save_meal_plans, save_recipes
 
 
 class TestAuthRoutes:
@@ -225,6 +225,25 @@ class TestRecipesRoutes:
         response = client.get('/recipes/999')
         assert response.status_code == 404
 
+    def test_delete_recipe_success(self, client, sample_recipe):
+        """Test deleting a saved recipe."""
+        save_recipes([sample_recipe])
+
+        response = client.post('/recipes/1/delete')
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert load_recipes() == []
+
+    def test_delete_recipe_not_found(self, client):
+        """Test deleting an unknown recipe returns 404."""
+        response = client.post('/recipes/999/delete')
+
+        assert response.status_code == 404
+        data = json.loads(response.data)
+        assert data['error'] == 'Recipe not found'
+
 
 class TestMealPlansRoutes:
     """Tests for meal plan related routes."""
@@ -415,6 +434,11 @@ class TestMealPlansRoutes:
         candidate_ids = {recipe['id'] for recipe in candidate_recipes}
         assert candidate_ids.isdisjoint({1, 2, 3})
         assert mock_ai.call_args[1]['days'] == 4
+        assert [recipe['name'] for recipe in mock_ai.call_args[1]['recent_recipes'][:3]] == [
+            'Spaghetti Carbonara',
+            'Chicken Curry',
+            'Caesar Salad'
+        ]
 
     def test_view_meal_plan_success(self, client, sample_meal_plan):
         """Test viewing a specific meal plan."""
@@ -468,6 +492,62 @@ class TestMealPlansRoutes:
         assert response.status_code == 200
         assert b'Wednesday' in response.data
         assert b'Thursday' in response.data
+
+    def test_swap_recipe_accepts_custom_meal_name(self, client, sample_recipes):
+        """Test staged plans can replace a recipe with a one-off custom meal."""
+        save_recipes(sample_recipes)
+        plan = {
+            'id': 1,
+            'created_at': '2024-01-01T12:00:00',
+            'start_date': '2024-01-08',
+            'days': 2,
+            'recipes': [sample_recipes[0], sample_recipes[1]],
+            'grocery_list': [],
+            'status': 'staged',
+            'calendar_added': False,
+            'calendar_event_ids': []
+        }
+        save_meal_plans([plan])
+
+        response = client.post('/meal-plans/1/swap',
+                             data=json.dumps({
+                                 'day_index': 1,
+                                 'custom_recipe_name': "McDonald's"
+                             }),
+                             content_type='application/json')
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['success'] is True
+        assert data['recipe']['name'] == "McDonald's"
+        assert data['recipe']['is_custom'] is True
+
+        stored_plan = app_module.load_meal_plans()[0]
+        assert stored_plan['recipes'][1]['name'] == "McDonald's"
+        assert stored_plan['recipes'][1]['id'] is None
+        assert stored_plan['recipes'][1]['is_custom'] is True
+
+    def test_view_meal_plan_marks_custom_meals(self, client):
+        """Test meal plan view renders custom meals without recipe links."""
+        plan = {
+            'id': 1,
+            'created_at': '2024-01-01T12:00:00',
+            'start_date': '2024-01-08',
+            'days': 2,
+            'recipes': [
+                {'id': 1, 'name': 'Recipe 1'},
+                {'id': None, 'name': "McDonald's", 'is_custom': True}
+            ],
+            'grocery_list': [],
+            'status': 'accepted'
+        }
+        save_meal_plans([plan])
+
+        response = client.get('/meal-plans/1')
+
+        assert response.status_code == 200
+        assert b"McDonald&#39;s" in response.data
+        assert b'Custom meal' in response.data
 
 
 class TestHealthEndpoint:

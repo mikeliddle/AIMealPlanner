@@ -49,7 +49,11 @@
                 <td>{{ item.date }}</td>
                 <td class="recipe-name">{{ item.recipe.name }}</td>
                 <td>
+                    {% if item.can_view_recipe %}
                     <a href="{{ url_for('view_recipe', recipe_id=item.recipe.id) }}" class="btn btn-secondary" target="_blank">View Recipe</a>
+                    {% else %}
+                    <span style="display: inline-block; margin-right: 8px; color: #666; font-size: 0.95em;">Custom meal</span>
+                    {% endif %}
                     <button class="btn btn-warning swap-btn" data-day-index="{{ item.day_index }}" data-current-recipe="{{ item.recipe.id }}">
                         Swap Recipe
                     </button>
@@ -116,6 +120,15 @@
         </div>
         <p>Select a recipe to use instead:</p>
 
+        <div class="form-group" style="padding: 12px; background: #fff7f3; border: 1px solid #f1ddd1; border-radius: 6px;">
+            <label for="customMealName">Use a one-off custom meal</label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <input type="text" id="customMealName" placeholder="e.g. McDonald's" style="flex: 1 1 220px;">
+                <button id="addCustomMealBtn" class="btn btn-success" type="button">Use Custom Meal</button>
+            </div>
+            <p style="margin: 8px 0 0; font-size: 0.9em; color: #666;">Custom meals are saved only in this meal plan and do not affect the grocery list.</p>
+        </div>
+
         <div class="form-group" style="margin: 10px 0 15px 0;">
             <input
                 type="text"
@@ -155,6 +168,7 @@ const planId = {{ plan.id }};
 let currentDayIndex = null;
 const recipeSearchInput = document.getElementById('recipeSearch');
 const noRecipeResults = document.getElementById('noRecipeResults');
+const customMealNameInput = document.getElementById('customMealName');
 
 function filterRecipeOptions() {
     const query = (recipeSearchInput.value || '').toLowerCase().trim();
@@ -175,6 +189,7 @@ function filterRecipeOptions() {
 
 function resetRecipeSearch() {
     recipeSearchInput.value = '';
+    customMealNameInput.value = '';
     filterRecipeOptions();
 }
 
@@ -218,7 +233,17 @@ document.querySelectorAll('.recipe-option').forEach(option => {
     });
 });
 
-async function swapRecipe(dayIndex, newRecipeId) {
+document.getElementById('addCustomMealBtn').addEventListener('click', function() {
+    const customMealName = customMealNameInput.value.trim();
+    if (!customMealName) {
+        alert('Enter a custom meal name first.');
+        customMealNameInput.focus();
+        return;
+    }
+    swapRecipe(currentDayIndex, null, customMealName);
+});
+
+async function swapRecipe(dayIndex, newRecipeId, customMealName = '') {
     document.getElementById('loadingOverlay').style.display = 'block';
 
     try {
@@ -229,7 +254,8 @@ async function swapRecipe(dayIndex, newRecipeId) {
             },
             body: JSON.stringify({
                 day_index: dayIndex,
-                new_recipe_id: newRecipeId
+                new_recipe_id: newRecipeId,
+                custom_recipe_name: customMealName
             })
         });
 
